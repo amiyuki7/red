@@ -2,5 +2,4 @@
 
 source ./venv/bin/activate
 
-cd src
-python -m redqct
+python -m src.redqct.app
