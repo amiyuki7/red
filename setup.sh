@@ -19,6 +19,8 @@ echo "~~~ Installing dependencies ~~~"
 pip install -r requirements.txt --disable-pip-version-check
 echo "~~~ Making scripts runnable ~~~"
 chmod +x ./*.sh
+echo "~~~ Creating .env ~~~"
+echo "BOT_TOKEN=\"\"\nDEV_TOKEN=\"\"" >> .env
 
 echo "${SUCCESS_PREFIX} Setup complete!"
 
