@@ -1,33 +1,50 @@
-from multiprocessing import Process, Pipe
-from colorama import Fore, Style
+import asyncio
+import discord
+import os
+from dotenv import load_dotenv
+from discord.ext.commands import Bot, Context
+from fastapi import FastAPI
+from .lib import cube
 
-from .bot import main as client_main
-from .server import main as server_main
-
-client_end, server_end = Pipe()
-
-client_proc = Process(
-    target=client_main,
-    args=(client_end,),
-)
-
-server_proc = Process(
-    target=server_main,
-    args=(server_end,),
-)
+load_dotenv()
+# Set this in .env
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+# BOT_TOKEN = os.getenv("DEV_TOKEN")
+assert type(BOT_TOKEN) is str
 
 
-def main() -> None:
+server = FastAPI()
+
+intents = discord.Intents.default()
+intents.message_content = True
+bot = Bot(command_prefix="$", intents=intents)
+
+
+@server.get("/")
+async def root_route():
+    return {"cube of 4": cube(4)}
+
+
+@server.get("/kanye")
+async def kanye_route():
+    await bot.get_channel(1042389563009683496).send("Somebody just did a GET request @ 127.0.0.1:8000/kanye")
+
+
+@bot.event
+async def on_ready():
+    print(f"Logged in as {bot.user}")
+
+
+@bot.command()
+async def kanye(ctx: Context):
+    await ctx.send(f"{ctx.author.display_name} thinks that kanye is king :crown:")
+
+
+async def main():
     try:
-        client_proc.start()
-        server_proc.start()
-        client_proc.join()
-        server_proc.join()
+        await bot.start(BOT_TOKEN)
     except KeyboardInterrupt:
-        pass
-    finally:
-        print(Fore.GREEN + Style.BRIGHT + "~~~ Shutting down bot & server ~~~" + Style.RESET_ALL)
+        await bot.close()
 
 
-if __name__ == "__main__":
-    main()
+asyncio.create_task(main())
