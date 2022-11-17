@@ -2,4 +2,4 @@
 
 source ./venv/bin/activate
 
-python -m src.redqct.app
+uvicorn src.redqct.app:server --port 8080
