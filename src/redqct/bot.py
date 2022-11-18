@@ -9,8 +9,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 # BOT_TOKEN = os.getenv("DEV_TOKEN")
 assert type(BOT_TOKEN) is str
 
-intents = discord.Intents.default()
-intents.message_content = True
+intents = discord.Intents().all()
 bot = Bot(command_prefix="$", intents=intents)
 
 
