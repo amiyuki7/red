@@ -3,7 +3,6 @@ import discord
 from .lib import *
 from discord.ext.commands import Bot, Context
 from dotenv import load_dotenv
-import time
 import datetime
 
 load_dotenv()
@@ -22,77 +21,108 @@ async def on_ready():
 
 
 @bot.command()
-async def kanye(ctx: Context):
-    await ctx.send(f"{ctx.author.display_name} thinks that kanye is king :crown:")
-
-
-@bot.command()
 async def specs_of(ctx: Context, member: discord.Member):
-    # await ctx.send("One Second")
     member_name = member.name
-    await ctx.send(member_name)
-
     member_tag = member.discriminator
-    await ctx.send(member_tag)
+    member_nick = member.nick or "No nick"
 
-    if member.nick:
-        member_nick = member.nick
-    else:
-        member_nick = "No nick"
-    await ctx.send(member_nick)
-    
     if member.avatar:
         member_avatar = member.display_avatar
     else:
         # see lib.py for explanation of default avatar colours
         # print("https://cdn.discordapp.com/embed/avatars/" str(member.discriminator%5) + ".png")
         print(str(int(member.discriminator)%5))
-        member_avatar = "https://cdn.discordapp.com/embed/avatars/" + int(member.discriminator)%5 + ".png"
+        member_avatar = f"https://cdn.discordapp.com/embed/avatars/{int(member.discriminator) % 5}.png"
         
     await ctx.send(member_avatar)
     
     member_status = member.status
-    await ctx.send(member_status)
-    
-    if member.public_flags:
-        member_badges = member.public_flags
-    else:
-        member_badges = "No badges"
-    await ctx.send(member_badges)
-    
-    member_activities = []
 
-    for activity in member.activities:
-        if activity.end:
-            # line3 = remaining time
-            pass
-        else:
-            # line3 = elapsed time
-            pass
-        member_activity = activity_atributes(activity.type.name, activity.name, activity.large_image_url, activity.small_image_url, activity.details, activity.state, line3)
-        member_activities.append(member_activity)
+    member_activity_name = "No activity"
+    member_activity_type = "No activity type"
+    member_activity_details = "No activity details"
+    member_activity_state = "No activity state"
+    member_activity_large_img = "No activity img"
+    member_activity_small_img = "No small activity img"
+    member_activity_end = None
+    member_activity_start = None
+    time_remaining = "No time remaining"
+    time_elapsed = "No time elapsed"
 
-    if member.activity:
-        member_activity_name = member.activity.name
-    else:
-        member_activity_name = "No activity"
-    await ctx.send(member_activity_name)
+    if activity := member.activity:
+        member_activity_name = activity.name
+        member_activity_type = activity.type.name
 
-    if member.activity.details:
-        member_activity_details = member.activity.details
-    await ctx.send(member_activity_details)
+        if isinstance(activity, discord.Activity):
+            member_activity_details = activity.details
+            member_activity_state = activity.state
+            # Handle None case with an or clause
+            member_activity_large_img = activity.large_image_url or member_activity_large_img
+            member_activity_small_img = activity.small_image_url or member_activity_small_img
+            member_activity_end = activity.end
+            member_activity_start = activity.start
 
-    if member.activity:
-        member_activity_type = member.activity.type.name
-    else:
-        member_activity_type = ""
-    await ctx.send(member_activity_type)
+        if member_activity_end:
+            now = datetime.datetime.now().timestamp()
+            now = datetime.datetime.fromtimestamp(now, tz=datetime.timezone.utc)
+            time_diff = member_activity_end - now
+            raw_time_remaining = divmod(time_diff.days * (24 * 60 * 60) + time_diff.seconds, 60)
+            minutes, seconds = raw_time_remaining
+            minutes = len(str(minutes)) == 1 and f"0{minutes}" or minutes
+            seconds = len(str(seconds)) == 1 and f"0{seconds}" or seconds
+            time_remaining = f"{minutes}:{seconds} left"
 
-    if member.activity:
-        pass
-        # if isinstance(member.activity, discord.):
-        # member_activity_misc = [member.activity.state, member.activity.session_id]
-    
+        if member_activity_start:
+            now = datetime.datetime.now().timestamp()
+            now = datetime.datetime.fromtimestamp(now, tz=datetime.timezone.utc)
+            time_diff = now - member_activity_start
+            s = time_diff.seconds
+
+            days = s // (24 * 60 * 60)
+            s %= 24 * 60 * 60
+            hours = s // (60 * 60)
+            s %= 60 * 60
+            mins = s // 60
+
+            if mins == 0:
+                mins = 1
+
+            time_elapsed = f"{days} days, {hours} hours, {mins} mins"
+
+    await ctx.send(
+        f"""
+        {member_name}
+        {member_tag}
+        {member_nick}
+        {member_status}
+        {member_activity_name}
+        {member_activity_type}
+        {member_activity_details}
+        {member_activity_state}
+        Time remaining: {time_remaining}
+        Time elapsed: {time_elapsed}
+        {member_avatar}
+        {member_activity_large_img}
+        {member_activity_small_img}
+        """.strip()
+    )
+
+    # await ctx.send(member_activity_name)
+
+    # if member.activity.details:
+    #     member_activity_details = member.activity.details
+    # await ctx.send(member_activity_details)
+
+    # if member.activity:
+    #     member_activity_type = member.activity.type.name
+    # else:
+    #     member_activity_type = ""
+    # await ctx.send(member_activity_type)
+
+    # if member.activity:
+    #     pass
+    # if isinstance(member.activity, discord.):
+    # member_activity_misc = [member.activity.state, member.activity.session_id]
 
     # start_time = member.activity.timestamps["start"]
     # end_time = member.activity.timestamps["end"]
@@ -102,13 +132,11 @@ async def specs_of(ctx: Context, member: discord.Member):
     # remaining = f"Time remaining (ms): {end_time - now}"
     # elapsed = f"Time elapsed (ms): {now - start_time}"
 
-
     # # Discord api has messaging rate limits so this should send everything in one chunk
     # # i split it up so i could comment out individual things during bug fixing
-    # # for example aydan doesn't have activity details, so the entire thing breaks 
+    # # for example aydan doesn't have activity details, so the entire thing breaks
     # # sine its in an f-string now, its just gonna show "None" instead of breaking... i think
     # await ctx.send(f"{member_name}\n{member_tag}\n{member_nick}\n{member_avatar}\n{member_status}\n{member_badges}\n{member_activity_name}\n{member_activity_details}\n{member_activity_type}\n{remaining}\n{elapsed}")
-
 
     # Dw about this chunk for now
     # for i in member_activity_misc:
@@ -117,7 +145,7 @@ async def specs_of(ctx: Context, member: discord.Member):
     # member_specs = [member_name, member_tag, member_nick, member_avatar, member_status, member_badges, member_activity, member_activity_type]
     # for spec in member_specs:
     #     print(spec)
-    # await ctx.send(f"{member_name, member_tag, member_nick, member_avatar, member_status, member_badges, member_activity, member_activity_type}") 
+    # await ctx.send(f"{member_name, member_tag, member_nick, member_avatar, member_status, member_badges, member_activity, member_activity_type}")
 
 
 async def main():
