@@ -1,17 +1,19 @@
 import os
 import discord
+from .lib import *
 from discord.ext.commands import Bot, Context
 from dotenv import load_dotenv
-from time import time
+import time
+import datetime
 
 load_dotenv()
 # Set this in .env
-BOT_TOKEN = os.getenv("DEV_TOKEN")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 # BOT_TOKEN = os.getenv("DEV_TOKEN")
 assert type(BOT_TOKEN) is str
 
 intents = discord.Intents().all()
-bot = Bot(command_prefix="%", intents=intents)
+bot = Bot(command_prefix="!", intents=intents)
 
 
 @bot.event
@@ -45,7 +47,7 @@ async def specs_of(ctx: Context, member: discord.Member):
         # see lib.py for explanation of default avatar colours
         # print("https://cdn.discordapp.com/embed/avatars/" str(member.discriminator%5) + ".png")
         print(str(int(member.discriminator)%5))
-        member_avatar = "https://cdn.discordapp.com/embed/avatars/" + member.discriminator%5 + ".png"
+        member_avatar = "https://cdn.discordapp.com/embed/avatars/" + int(member.discriminator)%5 + ".png"
         
     await ctx.send(member_avatar)
     
@@ -58,6 +60,18 @@ async def specs_of(ctx: Context, member: discord.Member):
         member_badges = "No badges"
     await ctx.send(member_badges)
     
+    member_activities = []
+
+    for activity in member.activities:
+        if activity.end:
+            # line3 = remaining time
+            pass
+        else:
+            # line3 = elapsed time
+            pass
+        member_activity = activity_atributes(activity.type.name, activity.name, activity.large_image_url, activity.small_image_url, activity.details, activity.state, line3)
+        member_activities.append(member_activity)
+
     if member.activity:
         member_activity_name = member.activity.name
     else:

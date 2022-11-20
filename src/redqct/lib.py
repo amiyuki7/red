@@ -24,7 +24,7 @@ class Attrs:
     
 
 class member_atributes():
-    def __init__(self, name: str, tag: str, nick: str | None, avatar: discord.Member.avatar, status: str, badges: List[discord.PublicUserFlags] | None, activity: activity_atributes | None) -> None:
+    def __init__(self, name: str, tag: str, nick: str | None, avatar: discord.Member.avatar, status: str, badges: List[discord.PublicUserFlags] | None, activities: List[activity_atributes] | None) -> None:
         self.name = name
         self.status = status
         self.badges = badges
@@ -35,11 +35,12 @@ class member_atributes():
             # There are 5 base avatars, each with a different background colour. The colour is determined based on the discriminant
             # For user name#1234 the discriminant would be 1234
             # This is explained at https://www.reddit.com/r/discordapp/comments/au6v4e/how_to_change_your_defualt_discord_avatars_colour/
-            self.avatar = f"https://cdn.discordapp.com/embed/avatars/{tag % 5}.png";
-        self.activity = activity
+            self.avatar = f"https://cdn.discordapp.com/embed/avatars/{int(tag) % 5}.png";
+        self.activities = activities
 
 class activity_atributes():
-    def __init__(self, name: str, image_large: str, image_small: str, line1: str | None, line2: str | None, line3: str | None) -> None:
+    def __init__(self, activity_type: str, name: str, image_large: str, image_small: str, line1: str | None, line2: str | None, line3: str | None) -> None:
+        self.type = activity_type
         self.name = name
         self.image_large = image_large
         self.image_small = image_small
