@@ -52,6 +52,7 @@ class activity_atributes:
     def __init__(
         self,
         name: str,
+        activity_type: str,
         image_large: str,
         image_small: str,
         line1: str | None,
@@ -59,6 +60,7 @@ class activity_atributes:
         line3: str | None,
     ) -> None:
         self.name = name
+        self.type = activity_type
         self.image_large = image_large
         self.image_small = image_small
         self.line1 = line1
