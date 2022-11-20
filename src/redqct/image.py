@@ -69,7 +69,36 @@ def masked(img: Image.Image, mask: Image.Image) -> Image.Image:
 
 
 def main():
-    pass
+    """
+    For testing image manipulation code only. Run with:
+
+    ```sh
+    python src/redqct/image.py
+    ```
+    """
+    # In production, these will be received from the discord bot
+    iactivity_large = Image.open(f"{ROOT_DIR}/image-test/iactivity_large.jpg")
+    iactivity_small = Image.open(f"{ROOT_DIR}/image-test/iactivity_small.png")
+    pfp = Image.open(f"{ROOT_DIR}/image-test/pfp.png")
+
+    template = Template()
+
+    # Rich presence large/small image
+    cropped_activity = masked(iactivity_large, Cache.activity_mask)
+    cropped_activity_small = masked(iactivity_small, Cache.status_mask)
+    template.draw(cropped_activity, (48, 356))
+    template.draw(Cache.status_underlay, (177, 480))
+    template.draw(cropped_activity_small, (177 + 4, 480 + 4))
+
+    # Pfp
+    cropped_pfp = masked(pfp, Cache.pfp_mask)
+    template.draw(cropped_pfp, (30, 50))
+
+    # Light
+    template.draw(Cache.status_underlay, (164, 184))
+    template.draw(Cache.light_dnd, (176, 196))
+
+    template.peek()
 
 
 if __name__ == "__main__":
