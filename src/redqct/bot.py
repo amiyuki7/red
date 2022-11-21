@@ -30,12 +30,8 @@ async def specs_of(ctx: Context, member: discord.Member):
         member_avatar = member.display_avatar
     else:
         # see lib.py for explanation of default avatar colours
-        # print("https://cdn.discordapp.com/embed/avatars/" str(member.discriminator%5) + ".png")
-        print(str(int(member.discriminator)%5))
         member_avatar = f"https://cdn.discordapp.com/embed/avatars/{int(member.discriminator) % 5}.png"
-        
-    await ctx.send(member_avatar)
-    
+         
     member_status = member.status
 
     member_activity_name = "No activity"
@@ -48,6 +44,10 @@ async def specs_of(ctx: Context, member: discord.Member):
     member_activity_start = None
     time_remaining = "No time remaining"
     time_elapsed = "No time elapsed"
+    line_1 = ""
+    line_2 = ""
+    line_3 = ""
+    line_4 = ""
 
     if activity := member.activity:
         member_activity_name = activity.name
@@ -71,8 +71,8 @@ async def specs_of(ctx: Context, member: discord.Member):
             minutes = len(str(minutes)) == 1 and f"0{minutes}" or minutes
             seconds = len(str(seconds)) == 1 and f"0{seconds}" or seconds
             time_remaining = f"{minutes}:{seconds} left"
-
-        if member_activity_start:
+            line_4 = time_remaining
+        elif member_activity_start:
             now = datetime.datetime.now().timestamp()
             now = datetime.datetime.fromtimestamp(now, tz=datetime.timezone.utc)
             time_diff = now - member_activity_start
@@ -87,21 +87,39 @@ async def specs_of(ctx: Context, member: discord.Member):
             if mins == 0:
                 mins = 1
 
-            time_elapsed = f"{days} days, {hours} hours, {mins} mins"
+            # time_elapsed = f"{days} days, {hours} hours, {mins} mins"
+            if days != 0:
+                line_4 = f"for {days} {days > 1 and 'days' or 'day'}"
+            elif hours != 0:
+                line_4 = f"for {hours} {hours > 1 and 'hours' or 'hour'}"
+            else:
+                line_4 = f"for {mins} {mins > 1 and 'minutes' or 'minute'}"
+
+            
+
+        line_1 = member_activity_name
+        line_2 = member_activity_details
+        line_3 = member_activity_state
+    
 
     await ctx.send(
+        # {member_activity_name}
+        # {member_activity_details}
+        # {member_activity_state}
+        # Time remaining: {time_remaining}
+        # Time elapsed: {time_elapsed}
+        
         f"""
         {member_name}
+        {member_avatar}
         {member_tag}
         {member_nick}
         {member_status}
-        {member_activity_name}
         {member_activity_type}
-        {member_activity_details}
-        {member_activity_state}
-        Time remaining: {time_remaining}
-        Time elapsed: {time_elapsed}
-        {member_avatar}
+        {line_1}
+        {line_2}
+        {line_3}
+        {line_4}
         {member_activity_large_img}
         {member_activity_small_img}
         """.strip()
