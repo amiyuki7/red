@@ -24,7 +24,7 @@ async def on_ready():
 async def specs_of(ctx: Context, member: discord.Member):
     member_name = member.name
     member_tag = member.discriminator
-    member_nick = member.nick or "No nick"
+    member_nick = member.nick
 
     if member.avatar:
         member_avatar = str(member.display_avatar)
@@ -53,7 +53,7 @@ async def specs_of(ctx: Context, member: discord.Member):
         member_activity_name = activity.name or member_activity_name
         member_activity_type = activity.type.name
 
-        if isinstance(activity, discord.Activity):
+        if isinstance(activity, discord.Activity) and not isinstance(activity, discord.Streaming):
             member_activity_details = activity.details or member_activity_details
             member_activity_state = activity.state or member_activity_state
             # Handle None case with an or clause
@@ -62,6 +62,48 @@ async def specs_of(ctx: Context, member: discord.Member):
             member_activity_end = activity.end
             member_activity_start = activity.start
 
+            line_1 = member_activity_name
+            line_2 = member_activity_details
+            line_3 = member_activity_state
+        elif isinstance(activity, discord.Streaming):
+            # This is completely untested
+            member_activity_large_img = activity.assets.get("large_image") or member_activity_large_img
+
+            line_1 = member_activity_name
+            line_2 = activity.game and f"playing {activity.game}" or ""
+            line_3 = activity.url and activity.url or ""
+        elif isinstance(activity, discord.Game):
+            # This is completely untested
+            member_activity_start = activity.start
+
+            line_1 = member_activity_name
+        elif isinstance(activity, discord.CustomActivity):
+            line_1 = member_activity_name
+        elif isinstance(activity, discord.Spotify):
+            now = datetime.datetime.now().timestamp()
+            now = datetime.datetime.fromtimestamp(now, tz=datetime.timezone.utc)
+            time_diff = now - activity.start
+            s = time_diff.seconds
+            mins = s // 60
+            s %= 60
+            duration = activity.duration
+            ds = duration.seconds
+            dmins = ds // 60
+            ds %= 60
+            fmt_elapsed = f"{mins}:{len(str(s)) > 1 and s or f'0{s}'}"
+            fmt_duration = f"{dmins}:{len(str(ds)) > 1 and ds or f'0{ds}'}"
+            artists = activity.artists
+            fmt_artists = f"by {', '.join(artists)}"
+            album = activity.album
+
+            member_activity_large_img = activity.album_cover_url
+
+            line_1 = activity.title
+            line_2 = fmt_artists
+            line_3 = f"on {album}"
+            line_4 = f"{fmt_elapsed} / {fmt_duration}"
+
+        # This if/elif block is only for discord.Activity
         if member_activity_end:
             now = datetime.datetime.now().timestamp()
             now = datetime.datetime.fromtimestamp(now, tz=datetime.timezone.utc)
@@ -87,17 +129,12 @@ async def specs_of(ctx: Context, member: discord.Member):
             if mins == 0:
                 mins = 1
 
-            # time_elapsed = f"{days} days, {hours} hours, {mins} mins"
             if days != 0:
                 line_4 = f"for {days} {days > 1 and 'days' or 'day'}"
             elif hours != 0:
                 line_4 = f"for {hours} {hours > 1 and 'hours' or 'hour'}"
             else:
                 line_4 = f"for {mins} {mins > 1 and 'minutes' or 'minute'}"
-
-        line_1 = member_activity_name
-        line_2 = member_activity_details
-        line_3 = member_activity_state
 
     lines = [line_1, line_2, line_3, line_4]
     # Filter out the lines that are empty
@@ -133,14 +170,19 @@ async def specs_of(ctx: Context, member: discord.Member):
         """.strip()
     )
 
-    activity_attrs = ActivityAttrs(
-        activity_type=member_activity_type,
-        image_large=member_activity_large_img,
-        image_small=member_activity_small_img,
-        line1=line_1,
-        line2=line_2,
-        line3=line_3,
-        line4=line_4,
+    # If the member has an activity, instantiate and ActivityAttrs object. Else, make it None
+    activity_attrs = (
+        member.activity
+        and ActivityAttrs(
+            activity_type=member_activity_type,
+            image_large=member_activity_large_img,
+            image_small=member_activity_small_img,
+            line1=line_1,
+            line2=line_2,
+            line3=line_3,
+            line4=line_4,
+        )
+        or None
     )
 
     attrs = MemberAttrs(
