@@ -50,7 +50,13 @@ async def specs_of(ctx: Context, member: discord.Member):
     line_3 = ""
     line_4 = ""
 
-    if activity := member.activity:
+    # CustomActivity is the custom status, which ofr this application, is not considered a "rich presence"
+    without_custom = [actv for actv in member.activities if not isinstance(actv, discord.CustomActivity)]
+    # Use the first non-custom activity
+    # TODO: Use all the activites and track them into a graph
+    activity = len(without_custom) > 0 and without_custom[0] or None
+
+    if activity:
         member_activity_name = activity.name or member_activity_name
         member_activity_type = activity.type.name
 
@@ -68,7 +74,7 @@ async def specs_of(ctx: Context, member: discord.Member):
             line_3 = member_activity_state
         elif isinstance(activity, discord.Streaming):
             # This is completely untested
-            member_activity_large_img = activity.assets.get("large_image") or member_activity_large_img
+            # member_activity_large_img = activity.assets.get("large_image") or member_activity_large_img
 
             line_1 = member_activity_name
             line_2 = activity.game and f"playing {activity.game}" or ""
@@ -77,8 +83,6 @@ async def specs_of(ctx: Context, member: discord.Member):
             # This is completely untested
             member_activity_start = activity.start
 
-            line_1 = member_activity_name
-        elif isinstance(activity, discord.CustomActivity):
             line_1 = member_activity_name
         elif isinstance(activity, discord.Spotify):
             now = datetime.datetime.now().timestamp()
