@@ -27,9 +27,9 @@ async def specs_of(ctx: Context, member: discord.Member):
     member_nick = member.nick or "No nick"
 
     if member.avatar:
-        member_avatar = member.display_avatar
+        member_avatar = str(member.display_avatar)
     else:
-        # see lib.py for explanation of default avatar colours
+        # There are 5 default avatars, each with a different colour. The colour is determined by the member's discriminator
         member_avatar = f"https://cdn.discordapp.com/embed/avatars/{int(member.discriminator) % 5}.png"
 
     member_status = member.status
@@ -110,6 +110,7 @@ async def specs_of(ctx: Context, member: discord.Member):
     # Destruct the lines list back into four individual strings
     line_1, line_2, line_3, line_4 = lines
 
+    # Debug within discord
     await ctx.send(
         # {member_activity_name}
         # {member_activity_details}
@@ -131,6 +132,27 @@ async def specs_of(ctx: Context, member: discord.Member):
         {member_activity_small_img}
         """.strip()
     )
+
+    activity_attrs = ActivityAttrs(
+        activity_type=member_activity_type,
+        image_large=member_activity_large_img,
+        image_small=member_activity_small_img,
+        line1=line_1,
+        line2=line_2,
+        line3=line_3,
+        line4=line_4,
+    )
+
+    attrs = MemberAttrs(
+        name=member_name,
+        tag=member_tag,
+        nick=member_nick,
+        status=member_status,
+        avatar=member_avatar,
+        activity=activity_attrs,
+    )
+
+    # return attrs
 
 
 async def main():
