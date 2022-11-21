@@ -1,6 +1,11 @@
 from pathlib import Path
 from PIL import Image, ImageFont, ImageDraw
-from typing import Tuple
+from typing import Tuple, List
+from io import BytesIO
+
+from discord import Status
+
+from .lib import MemberAttrs, fetch_all
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -84,52 +89,104 @@ def masked(img: Image.Image, mask: Image.Image) -> Image.Image:
     return Image.composite(img, Image.new("RGBA", mask.size), mask).convert("RGBA")
 
 
-def main():
+async def generate_img(attrs: MemberAttrs) -> Image.Image:
     """
-    For testing image manipulation code only. Run with:
-
-    ```sh
-    python src/redqct/image.py
-    ```
+    Generates an image and returns it, based off a MemberAttrs instance
     """
+    # """
+    # For testing image manipulation code only. Run with:
+    #
+    # ```sh
+    # python src/redqct/image.py
+    # ```
+    # """
     # In production, these will be received from the discord bot
-    iactivity_large = Image.open(f"{ROOT_DIR}/image-test/iactivity_large.jpg")
-    iactivity_small = Image.open(f"{ROOT_DIR}/image-test/iactivity_small.png")
-    pfp = Image.open(f"{ROOT_DIR}/image-test/pfp.png")
-
     template = Template()
+    urls: List[Tuple[str, str]] = [(attrs.avatar, "avatar")]
+    avatar = None
+    iactivity_large = None
+    iactivity_small = None
 
-    # Rich presence large/small image
-    cropped_activity = masked(iactivity_large, Cache.activity_mask)
-    cropped_activity_small = masked(iactivity_small, Cache.status_mask)
-    template.draw(cropped_activity, (48, 356))
-    template.draw(Cache.status_underlay, (177, 480))
-    template.draw(cropped_activity_small, (177 + 4, 480 + 4))
+    if attrs.activity:
+        if attrs.activity.image_large != "":
 
-    # Pfp
-    cropped_pfp = masked(pfp, Cache.pfp_mask)
-    template.draw(cropped_pfp, (30, 50))
+            tmp = attrs.activity.image_large
+            # For some reason, you get a 401 when GET-ing from here, but we can find the original URL of the asset
+            if tmp.startswith("https://media.discordapp.net/external/"):
+                buf = tmp.split("https")
+                # This is the original url
+                url = f"https:/{buf[2]}"
+                urls.append((url, "image_large"))
+            else:
+                urls.append((attrs.activity.image_large, "image_large"))
+        if attrs.activity.image_small != "":
+            # Might need to recycle above code for this, but usually the small image is in the CDN. Will fix if there
+            # is an issue open regarding this
+            urls.append((attrs.activity.image_small, "image_small"))
 
-    # Light
-    template.draw(Cache.status_underlay, (164, 184))
-    template.draw(Cache.light_dnd, (176, 196))
+    # Fetch all the images required (i.e. avatar, image_large?, image_small?)
+    results: List[Tuple[bytes, str]] = await fetch_all(urls)
 
-    # An interface which allows text to be directly edited into the template
+    # Use an identifier to check which image it really is, because an asynchronous fetch_all() doesn't return
+    # everything in the same order
+    for result in results:
+        match result[1]:
+            case "avatar":
+                avatar = Image.open(BytesIO(result[0]))
+            case "image_large":
+                iactivity_large = Image.open(BytesIO(result[0]))
+            case "image_small":
+                iactivity_small = Image.open(BytesIO(result[0]))
+
+        # Debug: Show them as they are collected
+        # avatar and avatar.show()
+        # iactivity_large and iactivity_large.show()
+        # iactivity_small and iactivity_small.show()
+
+    # Render avatar and light
+    if avatar:
+        cropped_pfp = masked(avatar, Cache.pfp_mask)
+        template.draw(cropped_pfp, (30, 50))
+        template.draw(Cache.status_underlay, (164, 184))
+
+        match attrs.status:
+            case Status.online:
+                light = Cache.light_online
+            case Status.idle:
+                light = Cache.light_idle
+            case Status.dnd | Status.do_not_disturb:
+                light = Cache.light_dnd
+            case Status.offline | Status.invisible:
+                light = Cache.light_invis
+
+        template.draw(light, (176, 196))
+
+    # Render activity image
+    if iactivity_large:
+        cropped_activity = masked(iactivity_large, Cache.activity_mask)
+        template.draw(cropped_activity, (48, 356))
+
+    # Render small activity image (if it exists)
+    if iactivity_small:
+        cropped_activity_small = masked(iactivity_small, Cache.status_mask)
+        template.draw(Cache.status_underlay, (177, 480))
+        template.draw(cropped_activity_small, (177 + 4, 480 + 4))
+
     edit = template.to_editable()
 
-    has_nick = True
-    username = "Gud"
-    tag = "3093"
-    nickname = "Vlad"
+    has_nick = bool(attrs.nick)
+    username = attrs.name
+    tag = attrs.tag
+    # Top left coordinate of the username if there is no nickname
     username_xy = (266, 113)
+    # Top left coordinate of the username if there is a nickname
     username_xy2 = (266, 73)
     nickname_xy = (266, 109)
 
     if has_nick:
-        # Draw the name#tag and the nickname underneath it
-        # name#tag
+        # Renders the name#tag and the nickname underneath
+        # Render name#tag
         edit.text(username_xy2, username, fill=(255, 255, 255), font=Cache.bold_30)
-
         left_margin = edit.textsize(username, font=Cache.bold_30)[0]
 
         edit.text(
@@ -139,13 +196,12 @@ def main():
             font=Cache.bold_30,
         )
 
-        # nickname
-        edit.text(nickname_xy, f"(aka {nickname})", fill=(255, 255, 255), font=Cache.bold_20)
+        # Render nickname
+        edit.text(nickname_xy, f"(aka {attrs.nick})", fill=(255, 255, 255), font=Cache.bold_20)
     else:
-        # Only draw the name#tag
-        # name#tag
+        # Only renders the name#tag
+        # Render name#tag
         edit.text(username_xy, username, fill=(255, 255, 255), font=Cache.bold_30)
-
         left_margin = edit.textsize(username, font=Cache.bold_30)[0]
 
         edit.text(
@@ -155,30 +211,158 @@ def main():
             font=Cache.bold_30,
         )
 
-    # Activity text
-    activity_ = "PLAYING A GAME"
-    edit.text((51, 317), activity_, fill=(255, 255, 255), font=Cache.heavy_25)
+    if attrs.activity:
+        # Render all the activity text
+        actv = attrs.activity
+        actv_type = actv.type
 
-    line1 = "YouTube Music"
-    edit.text(
-        (253, 384),
-        line1,
-        fill=(255, 255, 255),
-        # If the string is ascii, use Uni Sans. Else, use Noto
-        font=[Cache.noto_25, Cache.reg_25][line1.isascii()],
-    )
+        match actv_type:
+            case "playing":
+                activity_ = "PLAYING A GAME"
+            case "streaming":
+                activity_ = "STREAMING SOMETHING"
+            case "listening":
+                activity_ = "LISTENING TO SPOTIFY"
+            case "watching":
+                activity_ = "WATCHING SOMETHING"
+            case "custom":
+                activity_ = "CUSTOM ACTIVITY"
+            case "competing":
+                activity_ = "COMPETING IN A GAME"
+            case _:
+                activity_ = "UNKNOWN ACTIVITY (BUG?)"
 
-    line2 = "青春切符"
-    edit.text((253, 414), line2, fill=(255, 255, 255), font=[Cache.noto_25, Cache.reg_25][line2.isascii()])
+        edit.text((51, 317), activity_, fill=(255, 255, 255), font=Cache.heavy_25)
 
-    line3 = "まふまふ-青春切符"
-    edit.text((253, 444), line3, fill=(255, 255, 255), font=[Cache.noto_25, Cache.reg_25][line3.isascii()])
+        edit.text(
+            (253, 384),
+            actv.line1,
+            fill=(255, 255, 255),
+            # If the string is ascii, use Uni Sans. Else, use Noto for glyph support
+            font=[Cache.noto_25, Cache.bold_25][actv.line1.isascii()],
+        )
 
-    line4 = "03:18 left"
-    edit.text((253, 474), line4, fill=(255, 255, 255), font=[Cache.noto_25, Cache.reg_25][line4.isascii()])
+        edit.text(
+            (253, 414),
+            actv.line2,
+            fill=(255, 255, 255),
+            font=[Cache.noto_25, Cache.reg_25][actv.line2.isascii()],
+        )
 
-    template.peek()
+        edit.text(
+            (253, 444),
+            actv.line3,
+            fill=(255, 255, 255),
+            font=[Cache.noto_25, Cache.reg_25][actv.line3.isascii()],
+        )
+
+        edit.text(
+            (253, 474),
+            actv.line4,
+            fill=(255, 255, 255),
+            font=[Cache.noto_25, Cache.reg_25][actv.line4.isascii()],
+        )
+    else:
+        # There is no user activity
+        edit.text((51, 317), "CURRENTLY NOT DOING ANYTHING", fill=(255, 255, 255), font=Cache.heavy_25)
+
+    return template._background
+    # iactivity_large = Image.open(f"{ROOT_DIR}/image-test/iactivity_large.jpg")
+    # iactivity_small = Image.open(f"{ROOT_DIR}/image-test/iactivity_small.png")
+    # pfp = Image.open(f"{ROOT_DIR}/image-test/pfp.png")
+    #
+    # template = Template()
+    #
+    # # Rich presence large/small image
+    # cropped_activity = masked(iactivity_large, Cache.activity_mask)
+    # cropped_activity_small = masked(iactivity_small, Cache.status_mask)
+    # template.draw(cropped_activity, (48, 356))
+    # template.draw(Cache.status_underlay, (177, 480))
+    # template.draw(cropped_activity_small, (177 + 4, 480 + 4))
+    #
+    # # Pfp
+    # cropped_pfp = masked(pfp, Cache.pfp_mask)
+    # template.draw(cropped_pfp, (30, 50))
+    #
+    # # Light
+    # template.draw(Cache.status_underlay, (164, 184))
+    # template.draw(Cache.light_dnd, (176, 196))
+
+    # An interface which allows text to be directly edited into the template
+    # edit = template.to_editable()
+    #
+    # has_nick = True
+    # username = "Gud"
+    # tag = "3093"
+    # nickname = "Vlad"
+    # username_xy = (266, 113)
+    # username_xy2 = (266, 73)
+    # nickname_xy = (266, 109)
+    # if has_nick:
+    #     # Draw the name#tag and the nickname underneath it
+    #     # name#tag
+    #     edit.text(username_xy2, username, fill=(255, 255, 255), font=Cache.bold_30)
+    #
+    #     left_margin = edit.textsize(username, font=Cache.bold_30)[0]
+    #
+    #     edit.text(
+    #         (username_xy2[0] + left_margin, username_xy2[1]),
+    #         f"#{tag}",
+    #         fill=(167, 169, 172),
+    #         font=Cache.bold_30,
+    #     )
+    #
+    #     # nickname
+    #     edit.text(nickname_xy, f"(aka {nickname})", fill=(255, 255, 255), font=Cache.bold_20)
+    # else:
+    #     # Only draw the name#tag
+    #     # name#tag
+    #     edit.text(username_xy, username, fill=(255, 255, 255), font=Cache.bold_30)
+    #
+    #     left_margin = edit.textsize(username, font=Cache.bold_30)[0]
+    #
+    #     edit.text(
+    #         (username_xy[0] + left_margin, username_xy[1]),
+    #         f"#{tag}",
+    #         fill=(167, 169, 172),
+    #         font=Cache.bold_30,
+    #     )
+    #
+    # # Activity text
+    # activity_ = "PLAYING A GAME"
+    # edit.text((51, 317), activity_, fill=(255, 255, 255), font=Cache.heavy_25)
+    #
+    # line1 = "YouTube Music"
+    # edit.text(
+    #     (253, 384),
+    #     line1,
+    #     fill=(255, 255, 255),
+    #     # If the string is ascii, use Uni Sans. Else, use Noto
+    #     font=[Cache.noto_25, Cache.reg_25][line1.isascii()],
+    # )
+    #
+    # line2 = "青春切符"
+    # edit.text((253, 414), line2, fill=(255, 255, 255), font=[Cache.noto_25, Cache.reg_25][line2.isascii()])
+    #
+    # line3 = "まふまふ-青春切符"
+    # edit.text((253, 444), line3, fill=(255, 255, 255), font=[Cache.noto_25, Cache.reg_25][line3.isascii()])
+    #
+    # line4 = "03:18 left"
+    # edit.text((253, 474), line4, fill=(255, 255, 255), font=[Cache.noto_25, Cache.reg_25][line4.isascii()])
+    #
+    # template.peek()
+
+
+# async def main():
+#     urls = [
+#         "https://lh3.googleusercontent.com/j-8LjsIzC7wxkunudzcN9O4wS255bSv0wqe80p95LwvqqDWtrRQ-O_iKVDamTXviQQOHB7gjSlN9ztR4%3Dw544-h544-l90-rj",
+#     ]
+#
+#     res = await fetch_all(urls)
+#     print(res)
 
 
 if __name__ == "__main__":
-    main()
+    pass
+    # asyncio.run(main())
+    # test()
