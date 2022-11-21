@@ -1,6 +1,7 @@
 import os
 import discord
 from .lib import *
+from .image import generate_img
 from discord.ext.commands import Bot, Context
 from dotenv import load_dotenv
 import datetime
@@ -193,6 +194,10 @@ async def specs_of(ctx: Context, member: discord.Member):
         avatar=member_avatar,
         activity=activity_attrs,
     )
+
+    # Debug showing the image
+    img = await generate_img(attrs)
+    img.show()
 
     # return attrs
 
