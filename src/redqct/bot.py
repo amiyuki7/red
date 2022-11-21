@@ -34,12 +34,12 @@ async def specs_of(ctx: Context, member: discord.Member):
 
     member_status = member.status
 
-    member_activity_name = "No activity"
-    member_activity_type = "No activity type"
-    member_activity_details = "No activity details"
-    member_activity_state = "No activity state"
-    member_activity_large_img = "No activity img"
-    member_activity_small_img = "No small activity img"
+    member_activity_name = ""
+    member_activity_type = ""
+    member_activity_details = ""
+    member_activity_state = ""
+    member_activity_large_img = ""
+    member_activity_small_img = ""
     member_activity_end = None
     member_activity_start = None
     time_remaining = "No time remaining"
@@ -50,12 +50,12 @@ async def specs_of(ctx: Context, member: discord.Member):
     line_4 = ""
 
     if activity := member.activity:
-        member_activity_name = activity.name
+        member_activity_name = activity.name or member_activity_name
         member_activity_type = activity.type.name
 
         if isinstance(activity, discord.Activity):
-            member_activity_details = activity.details
-            member_activity_state = activity.state
+            member_activity_details = activity.details or member_activity_details
+            member_activity_state = activity.state or member_activity_state
             # Handle None case with an or clause
             member_activity_large_img = activity.large_image_url or member_activity_large_img
             member_activity_small_img = activity.small_image_url or member_activity_small_img
@@ -98,6 +98,17 @@ async def specs_of(ctx: Context, member: discord.Member):
         line_1 = member_activity_name
         line_2 = member_activity_details
         line_3 = member_activity_state
+
+    lines = [line_1, line_2, line_3, line_4]
+    # Filter out the lines that are empty
+    lines = [line for line in lines if line != ""]
+
+    # Move those empty strings to the end of the list
+    while len(lines) < 4:
+        lines.append("")
+
+    # Destruct the lines list back into four individual strings
+    line_1, line_2, line_3, line_4 = lines
 
     await ctx.send(
         # {member_activity_name}
