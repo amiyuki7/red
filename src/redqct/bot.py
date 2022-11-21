@@ -31,7 +31,7 @@ async def specs_of(ctx: Context, member: discord.Member):
     else:
         # see lib.py for explanation of default avatar colours
         member_avatar = f"https://cdn.discordapp.com/embed/avatars/{int(member.discriminator) % 5}.png"
-         
+
     member_status = member.status
 
     member_activity_name = "No activity"
@@ -95,12 +95,9 @@ async def specs_of(ctx: Context, member: discord.Member):
             else:
                 line_4 = f"for {mins} {mins > 1 and 'minutes' or 'minute'}"
 
-            
-
         line_1 = member_activity_name
         line_2 = member_activity_details
         line_3 = member_activity_state
-    
 
     await ctx.send(
         # {member_activity_name}
@@ -108,7 +105,6 @@ async def specs_of(ctx: Context, member: discord.Member):
         # {member_activity_state}
         # Time remaining: {time_remaining}
         # Time elapsed: {time_elapsed}
-        
         f"""
         {member_name}
         {member_avatar}
@@ -124,6 +120,7 @@ async def specs_of(ctx: Context, member: discord.Member):
         {member_activity_small_img}
         """.strip()
     )
+
 
 async def main():
     try:
