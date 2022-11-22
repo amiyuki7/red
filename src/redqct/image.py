@@ -2,6 +2,7 @@ from pathlib import Path
 from PIL import Image, ImageFont, ImageDraw
 from typing import Tuple, List
 from io import BytesIO
+from fontTools.ttLib import TTFont
 
 from discord import Status
 
@@ -28,6 +29,7 @@ class Cache_:
         "heavy_25",
         "reg_25",
         "noto_25",
+        "unisans",
     )
 
     def __init__(self) -> None:
@@ -48,6 +50,8 @@ class Cache_:
         self.heavy_25 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans Heavy.ttf", 25)
         self.reg_25 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans.ttf", 25)
         self.noto_25 = ImageFont.truetype(f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 25)
+
+        self.unisans = TTFont(f"{ROOT_DIR}/fonts/Uni Sans.ttf")
 
 
 Cache = Cache_()
@@ -87,6 +91,24 @@ def masked(img: Image.Image, mask: Image.Image) -> Image.Image:
     mask = mask.convert("L")
     assert img.size == mask.size
     return Image.composite(img, Image.new("RGBA", mask.size), mask).convert("RGBA")
+
+
+def contains_glyph(font: TTFont, char: str) -> bool:
+    """
+    Checks if `font` contains (i.e. supports) a singular charcter `char`
+    """
+    for table in font["cmap"].tables:  # type: ignore
+        if ord(char) in table.cmap.keys():
+            return True
+    return False
+
+
+def supported_font(wanted_font: ImageFont.FreeTypeFont, line: str) -> ImageFont.FreeTypeFont:
+    """
+    Checks if `line` is supported by UniSans. If it is supported, return the `wanted_font`. Else, return Noto
+    """
+    unisans_support = all(contains_glyph(Cache.unisans, c) for c in line)
+    return unisans_support and wanted_font or Cache.noto_25
 
 
 async def generate_img(attrs: MemberAttrs) -> Image.Image:
@@ -230,29 +252,29 @@ async def generate_img(attrs: MemberAttrs) -> Image.Image:
             (253, 384),
             actv.line1,
             fill=(255, 255, 255),
-            # If the string is ascii, use Uni Sans. Else, use Noto for glyph support
-            font=[Cache.noto_25, Cache.bold_25][actv.line1.isascii()],
+            # Check if Uni Sans supports the line. If it does, use Cache.bold_25. Else, Noto will be returned
+            font=supported_font(Cache.bold_25, actv.line1),
         )
 
         edit.text(
             (253, 414),
             actv.line2,
             fill=(255, 255, 255),
-            font=[Cache.noto_25, Cache.reg_25][actv.line2.isascii()],
+            font=supported_font(Cache.reg_25, actv.line2),
         )
 
         edit.text(
             (253, 444),
             actv.line3,
             fill=(255, 255, 255),
-            font=[Cache.noto_25, Cache.reg_25][actv.line3.isascii()],
+            font=supported_font(Cache.reg_25, actv.line3),
         )
 
         edit.text(
             (253, 474),
             actv.line4,
             fill=(255, 255, 255),
-            font=[Cache.noto_25, Cache.reg_25][actv.line4.isascii()],
+            font=supported_font(Cache.reg_25, actv.line4),
         )
     else:
         # There is no user activity
