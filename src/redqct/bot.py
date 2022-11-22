@@ -1,3 +1,4 @@
+import io
 import os
 import discord
 from .lib import *
@@ -152,28 +153,28 @@ async def specs_of(ctx: Context, member: discord.Member):
     # Destruct the lines list back into four individual strings
     line_1, line_2, line_3, line_4 = lines
 
-    # Debug within discord
-    await ctx.send(
-        # {member_activity_name}
-        # {member_activity_details}
-        # {member_activity_state}
-        # Time remaining: {time_remaining}
-        # Time elapsed: {time_elapsed}
-        f"""
-        {member_name}
-        {member_avatar}
-        {member_tag}
-        {member_nick}
-        {member_status}
-        {member_activity_type}
-        {line_1}
-        {line_2}
-        {line_3}
-        {line_4}
-        {member_activity_large_img}
-        {member_activity_small_img}
-        """.strip()
-    )
+    # # Debug within discord
+    # await ctx.send(
+    #     # {member_activity_name}
+    #     # {member_activity_details}
+    #     # {member_activity_state}
+    #     # Time remaining: {time_remaining}
+    #     # Time elapsed: {time_elapsed}
+    #     f"""
+    #     {member_name}
+    #     {member_avatar}
+    #     {member_tag}
+    #     {member_nick}
+    #     {member_status}
+    #     {member_activity_type}
+    #     {line_1}
+    #     {line_2}
+    #     {line_3}
+    #     {line_4}
+    #     {member_activity_large_img}
+    #     {member_activity_small_img}
+    #     """.strip()
+    # )
 
     # If the member has an activity, instantiate and ActivityAttrs object. Else, make it None
     activity_attrs = (
@@ -201,7 +202,12 @@ async def specs_of(ctx: Context, member: discord.Member):
 
     # Debug showing the image
     img = await generate_img(attrs)
-    img.show()
+    # img.show()
+
+    with io.BytesIO() as bin:
+        img.save(bin, "png")
+        bin.seek(0)
+        await ctx.send(file=discord.File(fp=bin, filename="out.png"))
 
     # return attrs
 
