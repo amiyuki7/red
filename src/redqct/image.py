@@ -103,12 +103,28 @@ def contains_glyph(font: TTFont, char: str) -> bool:
     return False
 
 
-def supported_font(wanted_font: ImageFont.FreeTypeFont, line: str) -> ImageFont.FreeTypeFont:
+def draw_text(
+    interface: ImageDraw.ImageDraw, line: str, start: Tuple[int, int], wanted_font: ImageFont.FreeTypeFont
+) -> None:
     """
-    Checks if `line` is supported by UniSans. If it is supported, return the `wanted_font`. Else, return Noto
+    Renders a line of text, in different fonts if necessary
+
+    interface   | a pillow `ImageDraw` object pointing to a pillow `Image`
+    line        | line of text to be rendered
+    start       | top left corner of the text (x, y)
+    wanted_font | desired font for each character to be rendered in
     """
-    unisans_support = all(contains_glyph(Cache.unisans, c) for c in line)
-    return unisans_support and wanted_font or Cache.noto_25
+    can_unisans: List[bool] = [contains_glyph(Cache.unisans, char) for char in line]
+    x, y = start
+    net_offset = 0
+
+    for i, char in enumerate(line):
+        # If the character is supported by Unisans, use the wanted font. Else, use Noto
+        font = [Cache.noto_25, wanted_font][can_unisans[i]]
+        # Render the individual character
+        interface.text((x + net_offset, y), char, fill=(255, 255, 255), font=font)
+        # Calculate the width of the character, add to offset
+        net_offset += interface.textsize(char, font=font)[0]
 
 
 async def generate_img(attrs: MemberAttrs) -> Image.Image:
@@ -248,34 +264,13 @@ async def generate_img(attrs: MemberAttrs) -> Image.Image:
 
         edit.text((51, 317), activity_, fill=(255, 255, 255), font=Cache.heavy_25)
 
-        edit.text(
-            (253, 384),
-            actv.line1,
-            fill=(255, 255, 255),
-            # Check if Uni Sans supports the line. If it does, use Cache.bold_25. Else, Noto will be returned
-            font=supported_font(Cache.bold_25, actv.line1),
-        )
+        draw_text(edit, actv.line1, (253, 384), Cache.bold_25)
 
-        edit.text(
-            (253, 414),
-            actv.line2,
-            fill=(255, 255, 255),
-            font=supported_font(Cache.reg_25, actv.line2),
-        )
+        draw_text(edit, actv.line2, (253, 414), Cache.reg_25)
 
-        edit.text(
-            (253, 444),
-            actv.line3,
-            fill=(255, 255, 255),
-            font=supported_font(Cache.reg_25, actv.line3),
-        )
+        draw_text(edit, actv.line3, (253, 444), Cache.reg_25)
 
-        edit.text(
-            (253, 474),
-            actv.line4,
-            fill=(255, 255, 255),
-            font=supported_font(Cache.reg_25, actv.line4),
-        )
+        draw_text(edit, actv.line4, (253, 474), Cache.reg_25)
     else:
         # There is no user activity
         edit.text((51, 317), "CURRENTLY NOT DOING ANYTHING", fill=(255, 255, 255), font=Cache.heavy_25)
