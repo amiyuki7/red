@@ -16,8 +16,8 @@ class MemberAttrs:
         status: Status,
         avatar: str,
         # badges: List[discord.PublicUserFlags] | None,
-        activity: Optional[ActivityAttrs],
-        customActivity: Optional[str]
+        activity: List[ActivityAttrs],
+        customActivity: Optional[str],
     ) -> None:
         self.name = name
         self.tag = tag
@@ -49,7 +49,9 @@ class ActivityAttrs:
         self.line4 = len(line4) > 35 and line4[:50] + "..." or line4
 
 
-async def fetch_bytes(session: aiohttp.ClientSession, url: str, id: str) -> Tuple[bytes, str]:
+async def fetch_bytes(
+    session: aiohttp.ClientSession, url: str, id: str
+) -> Tuple[bytes, str]:
     async with session.get(url) as response:
         # Debug
         print(response.status, response.content_type)
