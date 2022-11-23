@@ -1,6 +1,6 @@
 from pathlib import Path
 from PIL import Image, ImageFont, ImageDraw
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 from io import BytesIO
 from fontTools.ttLib import TTFont
 
@@ -14,7 +14,11 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 
 class Cache_:
     __slots__ = (
-        "itemplate",
+        # "itemplate",
+        "member_template",
+        "custom_activity_template",
+        "dummy_activity_template",
+        "activity_template",
         "pfp_mask",
         "activity_mask",
         "status_mask",
@@ -28,12 +32,20 @@ class Cache_:
         "bold_20",
         "heavy_25",
         "reg_25",
+        "noto_20",
         "noto_25",
+        "noto_30",
         "unisans",
     )
 
     def __init__(self) -> None:
-        self.itemplate = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-1100x600.png")
+        # self.itemplate = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-1100x600.png")
+        # fmt: off
+        self.member_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-member-1100x600.png")
+        self.custom_activity_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-custom-status-1100x100.png")
+        self.dummy_activity_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-dummy-1100x335.png")
+        self.activity_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-activity-1100x335.png")
+        # fmt: on
         self.pfp_mask = Image.open(f"{ROOT_DIR}/assets/mask_pfp.png")
         self.activity_mask = Image.open(f"{ROOT_DIR}/assets/mask_activity.png")
         self.status_mask = Image.open(f"{ROOT_DIR}/assets/mask_status_60.png")
@@ -49,7 +61,9 @@ class Cache_:
         self.bold_20 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans Bold.ttf", 20)
         self.heavy_25 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans Heavy.ttf", 25)
         self.reg_25 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans.ttf", 25)
+        self.noto_20 = ImageFont.truetype(f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 20)
         self.noto_25 = ImageFont.truetype(f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 25)
+        self.noto_30 = ImageFont.truetype(f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 30)
 
         self.unisans = TTFont(f"{ROOT_DIR}/fonts/Uni Sans.ttf")
 
@@ -62,11 +76,9 @@ class Template:
     An abstraction over Pillow to focus exclusively on editing the Redqct template image
     """
 
-    def __init__(self) -> None:
+    def __init__(self, template: Image.Image) -> None:
         # Alpha composing the background with nothing allows support of alpha values when calling Image.paste
-        self._background = Image.alpha_composite(
-            Image.new("RGBA", Cache.itemplate.size), Cache.itemplate.convert("RGBA")
-        )
+        self._background = Image.alpha_composite(Image.new("RGBA", template.size), template.convert("RGBA"))
 
     def draw(self, image: Image.Image, coords: Tuple[int, int]) -> None:
         self._background.paste(image, coords, image)
@@ -76,6 +88,24 @@ class Template:
 
     def to_editable(self) -> ImageDraw.ImageDraw:
         return ImageDraw.Draw(self._background)
+
+
+class MemberTemplate(Template):
+    def __init__(self) -> None:
+        super().__init__(Cache.member_template)
+
+
+class CustomActivityTemplate(Template):
+    def __init__(self) -> None:
+        super().__init__(Cache.custom_activity_template)
+
+
+class ActivityTemplate(Template):
+    def __init__(self, dummy: bool) -> None:
+        if dummy:
+            super().__init__(Cache.dummy_activity_template)
+        else:
+            super().__init__(Cache.activity_template)
 
 
 def masked(img: Image.Image, mask: Image.Image) -> Image.Image:
@@ -103,181 +133,290 @@ def contains_glyph(font: TTFont, char: str) -> bool:
     return False
 
 
-def supported_font(wanted_font: ImageFont.FreeTypeFont, line: str) -> ImageFont.FreeTypeFont:
+def draw_text(
+    interface: ImageDraw.ImageDraw,
+    line: str,
+    colour: Tuple[int, int, int],
+    start: Tuple[int, int],
+    wanted_font: ImageFont.FreeTypeFont,
+    fallback: ImageFont.FreeTypeFont,
+) -> int:
     """
-    Checks if `line` is supported by UniSans. If it is supported, return the `wanted_font`. Else, return Noto
+    Renders a line of text, in different fonts if necessary
+
+    interface   | a pillow `ImageDraw` object pointing to a pillow `Image`
+    line        | line of text to be rendered
+    start       | top left corner of the text (x, y)
+    wanted_font | desired font for each character to be rendered in
+    fallback    | Preferably a type of "Noto" font to use if Uni Sans doesn't work
+
+    Returns the total width of the rendered text
     """
-    unisans_support = all(contains_glyph(Cache.unisans, c) for c in line)
-    return unisans_support and wanted_font or Cache.noto_25
+    can_unisans: List[bool] = [contains_glyph(Cache.unisans, char) for char in line]
+    x, y = start
+    net_offset: int = 0
+
+    for i, char in enumerate(line):
+        # If the character is supported by Unisans, use the wanted font. Else, use Noto
+        font = [fallback, wanted_font][can_unisans[i]]
+        # Render the individual character. If the font is a fallback Noto font, translate the y value up 4px for alignment
+        interface.text((x + net_offset, font == fallback and y - 4 or y), char, fill=colour, font=font)
+        # Calculate the width of the character, add to offset
+        net_offset += interface.textsize(char, font=font)[0]
+
+    return net_offset
+
+
+def generate_member(
+    name: str, tag: str, nick: Optional[str], status: Status, avatar: Image.Image
+) -> Image.Image:
+    """
+    Generates the member piece of the overall image using a template
+    """
+    template = MemberTemplate()
+
+    # Render avatar and light
+    cropped_pfp = masked(avatar, Cache.pfp_mask)
+    template.draw(cropped_pfp, (30, 50))
+    template.draw(Cache.status_underlay, (164, 184))
+
+    match status:
+        case Status.online:
+            light = Cache.light_online
+        case Status.idle:
+            light = Cache.light_idle
+        case Status.dnd | Status.do_not_disturb:
+            light = Cache.light_dnd
+        case Status.offline | Status.invisible:
+            light = Cache.light_invis
+
+    template.draw(light, (176, 196))
+
+    edit = template.to_editable()
+    username_xy = (266, 113)
+    username_xy2 = (266, 73)
+    nickname_xy = (266, 109)
+
+    if nick:
+        # Render name#tag
+        offset = draw_text(
+            edit,
+            name,
+            (255, 255, 255),
+            username_xy2,
+            Cache.bold_30,
+            Cache.noto_30,
+        )
+
+        draw_text(
+            edit,
+            f"#{tag}",
+            (167, 169, 172),
+            (username_xy2[0] + offset, username_xy2[1]),
+            Cache.bold_30,
+            Cache.noto_30,
+        )
+
+        # Render nickname
+        draw_text(
+            edit,
+            f"(aka {nick})",
+            (255, 255, 255),
+            nickname_xy,
+            Cache.bold_20,
+            Cache.noto_20,
+        )
+    else:
+        # Render only the name#tag
+
+        offset = draw_text(
+            edit,
+            name,
+            (255, 255, 255),
+            username_xy,
+            Cache.bold_30,
+            Cache.noto_30,
+        )
+
+        draw_text(
+            edit,
+            f"#{tag}",
+            (167, 169, 172),
+            (username_xy[0] + offset, username_xy[1]),
+            Cache.bold_30,
+            Cache.noto_30,
+        )
+
+    return template._background
+
+
+def generate_custom_status(line: Optional[str]) -> Image.Image:
+    """
+    Generates the custom status piece of the overall image using a template
+    """
+    template = CustomActivityTemplate()
+
+    edit = template.to_editable()
+
+    if line:
+        draw_text(
+            edit,
+            line,
+            (255, 255, 255),
+            (50, 38),
+            Cache.heavy_25,
+            Cache.noto_25,
+        )
+
+    return template._background
+
+
+def generate_activity(
+    image_large: Optional[Image.Image],
+    image_small: Optional[Image.Image],
+    atype: str,
+    line1: str,
+    line2: str,
+    line3: str,
+    line4: str,
+    **kwargs,
+) -> Image.Image:
+    """
+    Generates an activity piece of the overall image using a template
+
+    kwargs:
+    `dummy`: bool   | When set to `True`, returns an empty activity piece
+    """
+    if kwargs.get("dummy"):
+        template = ActivityTemplate(dummy=True)
+        edit = template.to_editable()
+        edit.text((51, 55), "CURRENTLY NOT DOING ANYTHING", fill=(255, 255, 255), font=Cache.heavy_25)
+        return template._background
+    else:
+        template = ActivityTemplate(dummy=False)
+
+    # Render activity image
+    if image_large:
+        cropped_image = masked(image_large, Cache.activity_mask)
+        template.draw(cropped_image, (48, 91))
+
+    if image_small:
+        cropped_image_small = masked(image_small, Cache.status_mask)
+        template.draw(Cache.status_underlay, (177, 215))
+        template.draw(cropped_image_small, (177 + 4, 215 + 4))
+
+    edit = template.to_editable()
+
+    # Render all the activity text
+
+    match atype:
+        case "playing":
+            activity = "PLAYING A GAME"
+        case "streaming":
+            activity = "STREAMING SOMETHING"
+        case "listening":
+            activity = "LISTENING TO SPOTIFY"
+        case "watching":
+            activity = "WATCHING SOMETHING"
+        case "custom":
+            activity = "CUSTOM ACTIVITY"
+        case "competing":
+            activity = "COMPETING IN A GAME"
+        case _:
+            activity = "UNKNOWN ACTIVITY (BUG?)"
+
+    edit.text((51, 55), activity, fill=(255, 255, 255), font=Cache.heavy_25)
+
+    draw_text(edit, line1, (255, 255, 255), (253, 128), Cache.bold_25, Cache.noto_25)
+    draw_text(edit, line2, (255, 255, 255), (253, 158), Cache.reg_25, Cache.noto_25)
+    draw_text(edit, line3, (255, 255, 255), (253, 188), Cache.reg_25, Cache.noto_25)
+    draw_text(edit, line4, (255, 255, 255), (253, 218), Cache.reg_25, Cache.noto_25)
+
+    return template._background
+
+
+def stitch(pieces: List[Image.Image]) -> Image.Image:
+    """
+    Takes a list of pieces and "stitches" them together in order vertically, returning the composed image
+    """
+    total_height = sum([piece.height for piece in pieces])
+    background = Image.new("RGBA", (1100, total_height), (255, 255, 255, 255))
+    y_offset = 0
+    for piece in pieces:
+        background.paste(piece, (0, y_offset))
+        y_offset += piece.height
+
+    return background
 
 
 async def generate_img(attrs: MemberAttrs) -> Image.Image:
     """
     Generates an image and returns it, based off a MemberAttrs instance
     """
-    template = Template()
     urls: List[Tuple[str, str]] = [(attrs.avatar, "avatar")]
-    avatar = None
-    iactivity_large = None
-    iactivity_small = None
 
-    if attrs.activity:
-        if attrs.activity.image_large != "":
-
-            tmp = attrs.activity.image_large
-            # For some reason, you get a 401 when GET-ing from here, but we can find the original URL of the asset
+    for idx, activity in enumerate(attrs.activities):
+        if activity.image_large != "":
+            tmp = activity.image_large
+            # For some reason, a 401 is returned when rawly fetching from this endpoint
+            # Instead, find the original URL and fetch from there
             if tmp.startswith("https://media.discordapp.net/external/"):
                 buf = tmp.split("https")
-                # This is the original url
                 url = f"https:/{buf[2]}"
-                urls.append((url, "image_large"))
+                urls.append((url, f"image_large{idx}"))
             else:
-                urls.append((attrs.activity.image_large, "image_large"))
-        if attrs.activity.image_small != "":
-            # Might need to recycle above code for this, but usually the small image is in the CDN. Will fix if there
-            # is an issue open regarding this
-            urls.append((attrs.activity.image_small, "image_small"))
+                urls.append((activity.image_large, f"image_large{idx}"))
 
-    # Fetch all the images required (i.e. avatar, image_large?, image_small?)
+        if activity.image_small != "":
+            tmp = activity.image_small
+            if tmp.startswith("https://media.discordapp.net/external/"):
+                buf = tmp.split("https")
+                url = f"https:/{buf[2]}"
+                urls.append((url, f"image_small{idx}"))
+            else:
+                urls.append((activity.image_small, f"image_small{idx}"))
+
     results: List[Tuple[bytes, str]] = await fetch_all(urls)
 
-    # Use an identifier to check which image it really is, because an asynchronous fetch_all() doesn't return
-    # everything in the same order
+    # Goes through all the results and finds the avatar image by locating its corresponding identifier "avatar"
+    avatar_bytes = [result[0] for result in results if result[1] == "avatar"][0]
+    avatar_png = Image.open(BytesIO(avatar_bytes))
+
+    image_groups: List[List[Optional[Image.Image]]] = [[None, None] for _ in range(len(attrs.activities))]
+
+    # Pairs all the activity images so that this structure is formed:
+    # [(large0, small0), (large1, small1), (large2, small2), ... (largen, smalln)]
     for result in results:
-        match result[1]:
-            case "avatar":
-                avatar = Image.open(BytesIO(result[0]))
-            case "image_large":
-                iactivity_large = Image.open(BytesIO(result[0]))
-            case "image_small":
-                iactivity_small = Image.open(BytesIO(result[0]))
+        img_id = result[1]
+        idx = img_id[-1]
+        img_type = img_id[:-1]
 
-        # Debug: Show them as they are collected
-        # avatar and avatar.show()
-        # iactivity_large and iactivity_large.show()
-        # iactivity_small and iactivity_small.show()
+        if img_type == "image_large":
+            image_groups[int(idx)][0] = Image.open(BytesIO(result[0]))
+        elif img_type == "image_small":
+            image_groups[int(idx)][1] = Image.open(BytesIO(result[0]))
 
-    # Render avatar and light
-    if avatar:
-        cropped_pfp = masked(avatar, Cache.pfp_mask)
-        template.draw(cropped_pfp, (30, 50))
-        template.draw(Cache.status_underlay, (164, 184))
+    member_piece = generate_member(attrs.name, attrs.tag, attrs.nick, attrs.status, avatar_png)
 
-        match attrs.status:
-            case Status.online:
-                light = Cache.light_online
-            case Status.idle:
-                light = Cache.light_idle
-            case Status.dnd | Status.do_not_disturb:
-                light = Cache.light_dnd
-            case Status.offline | Status.invisible:
-                light = Cache.light_invis
-
-        template.draw(light, (176, 196))
-
-    # Render activity image
-    if iactivity_large:
-        cropped_activity = masked(iactivity_large, Cache.activity_mask)
-        template.draw(cropped_activity, (48, 356))
-
-    # Render small activity image (if it exists)
-    if iactivity_small:
-        cropped_activity_small = masked(iactivity_small, Cache.status_mask)
-        template.draw(Cache.status_underlay, (177, 480))
-        template.draw(cropped_activity_small, (177 + 4, 480 + 4))
-
-    edit = template.to_editable()
-
-    has_nick = bool(attrs.nick)
-    username = attrs.name
-    tag = attrs.tag
-    # Top left coordinate of the username if there is no nickname
-    username_xy = (266, 113)
-    # Top left coordinate of the username if there is a nickname
-    username_xy2 = (266, 73)
-    nickname_xy = (266, 109)
-
-    if has_nick:
-        # Renders the name#tag and the nickname underneath
-        # Render name#tag
-        edit.text(username_xy2, username, fill=(255, 255, 255), font=Cache.bold_30)
-        left_margin = edit.textsize(username, font=Cache.bold_30)[0]
-
-        edit.text(
-            (username_xy2[0] + left_margin, username_xy2[1]),
-            f"#{tag}",
-            fill=(167, 169, 172),
-            font=Cache.bold_30,
+    activity_pieces = [
+        generate_activity(
+            image_groups[idx][0],
+            image_groups[idx][1],
+            activity.type,
+            activity.line1,
+            activity.line2,
+            activity.line3,
+            activity.line4,
         )
+        for idx, activity in enumerate(attrs.activities)
+    ]
 
-        # Render nickname
-        edit.text(nickname_xy, f"(aka {attrs.nick})", fill=(255, 255, 255), font=Cache.bold_20)
-    else:
-        # Only renders the name#tag
-        # Render name#tag
-        edit.text(username_xy, username, fill=(255, 255, 255), font=Cache.bold_30)
-        left_margin = edit.textsize(username, font=Cache.bold_30)[0]
+    # Create a dummy piece if no activity pieces were generated
+    if len(activity_pieces) == 0:
+        activity_pieces.append(generate_activity(None, None, "", "", "", "", "", dummy=True))
 
-        edit.text(
-            (username_xy[0] + left_margin, username_xy[1]),
-            f"#{tag}",
-            fill=(167, 169, 172),
-            font=Cache.bold_30,
-        )
-
-    if attrs.activity:
-        # Render all the activity text
-        actv = attrs.activity
-        actv_type = actv.type
-
-        match actv_type:
-            case "playing":
-                activity_ = "PLAYING A GAME"
-            case "streaming":
-                activity_ = "STREAMING SOMETHING"
-            case "listening":
-                activity_ = "LISTENING TO SPOTIFY"
-            case "watching":
-                activity_ = "WATCHING SOMETHING"
-            case "custom":
-                activity_ = "CUSTOM ACTIVITY"
-            case "competing":
-                activity_ = "COMPETING IN A GAME"
-            case _:
-                activity_ = "UNKNOWN ACTIVITY (BUG?)"
-
-        edit.text((51, 317), activity_, fill=(255, 255, 255), font=Cache.heavy_25)
-
-        edit.text(
-            (253, 384),
-            actv.line1,
-            fill=(255, 255, 255),
-            # Check if Uni Sans supports the line. If it does, use Cache.bold_25. Else, Noto will be returned
-            font=supported_font(Cache.bold_25, actv.line1),
-        )
-
-        edit.text(
-            (253, 414),
-            actv.line2,
-            fill=(255, 255, 255),
-            font=supported_font(Cache.reg_25, actv.line2),
-        )
-
-        edit.text(
-            (253, 444),
-            actv.line3,
-            fill=(255, 255, 255),
-            font=supported_font(Cache.reg_25, actv.line3),
-        )
-
-        edit.text(
-            (253, 474),
-            actv.line4,
-            fill=(255, 255, 255),
-            font=supported_font(Cache.reg_25, actv.line4),
-        )
-    else:
-        # There is no user activity
-        edit.text((51, 317), "CURRENTLY NOT DOING ANYTHING", fill=(255, 255, 255), font=Cache.heavy_25)
-
-    return template._background
+    return (
+        attrs.customActivity is not None
+        and stitch([member_piece, generate_custom_status(attrs.customActivity), *activity_pieces])
+        or stitch([member_piece, *activity_pieces])
+    )
