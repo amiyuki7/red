@@ -37,28 +37,22 @@ async def specs_of(ctx: Context, member: discord.Member):
     member_status = member.status
 
     # CustomActivity is the custom status, which ofr this application, is not considered a "rich presence"
-    without_custom = [
-        actv
-        for actv in member.activities
-        if not isinstance(actv, discord.CustomActivity)
-    ]
+    without_custom = [actv for actv in member.activities if not isinstance(actv, discord.CustomActivity)]
     # Use the first non-custom activity
     # TODO: Use all the activites and track them into a graph
     activities = len(without_custom) > 0 and without_custom or None
 
     custom_activity = (
         # custom activity = (there is a cusom activity) and (the custom activity) or None
-        [actv for actv in member.activities if isinstance(actv, discord.CustomActivity)]
-        and [
-            actv
-            for actv in member.activities
-            if isinstance(actv, discord.CustomActivity)
-        ][0].name
+        len([actv for actv in member.activities if isinstance(actv, discord.CustomActivity)]) != 0
+        and [actv for actv in member.activities if isinstance(actv, discord.CustomActivity)][0].name
         or None
     )
 
+    activities_list = []
+
     if activities:
-        activities_list = []
+        # activities_list = []
         for activity in activities:
             member_activity_name = ""
             member_activity_type = ""
@@ -77,18 +71,12 @@ async def specs_of(ctx: Context, member: discord.Member):
             member_activity_name = activity.name or member_activity_name
             member_activity_type = activity.type.name
 
-            if isinstance(activity, discord.Activity) and not isinstance(
-                activity, discord.Streaming
-            ):
+            if isinstance(activity, discord.Activity) and not isinstance(activity, discord.Streaming):
                 member_activity_details = activity.details or member_activity_details
                 member_activity_state = activity.state or member_activity_state
                 # Handle None case with an or clause
-                member_activity_large_img = (
-                    activity.large_image_url or member_activity_large_img
-                )
-                member_activity_small_img = (
-                    activity.small_image_url or member_activity_small_img
-                )
+                member_activity_large_img = activity.large_image_url or member_activity_large_img
+                member_activity_small_img = activity.small_image_url or member_activity_small_img
                 member_activity_end = activity.end
                 member_activity_start = activity.start
 
@@ -136,9 +124,7 @@ async def specs_of(ctx: Context, member: discord.Member):
                 now = datetime.datetime.now().timestamp()
                 now = datetime.datetime.fromtimestamp(now, tz=datetime.timezone.utc)
                 time_diff = member_activity_end - now
-                raw_time_remaining = divmod(
-                    time_diff.days * (24 * 60 * 60) + time_diff.seconds, 60
-                )
+                raw_time_remaining = divmod(time_diff.days * (24 * 60 * 60) + time_diff.seconds, 60)
                 minutes, seconds = raw_time_remaining
                 minutes = len(str(minutes)) == 1 and f"0{minutes}" or minutes
                 seconds = len(str(seconds)) == 1 and f"0{seconds}" or seconds
@@ -212,17 +198,19 @@ async def specs_of(ctx: Context, member: discord.Member):
             )
             activities_list.append(activity_attrs)
 
-    else:
-        activity_attrs = None
+    # else:
+    #     activity_attrs = None
+
     # await ctx.send(len(activities_list))
     # await ctx.send(custom_activity)
+
     attrs = MemberAttrs(
         name=member_name,
         tag=member_tag,
         nick=member_nick,
         status=member_status,
         avatar=member_avatar,
-        activity=activities_list,
+        activities=activities_list,
         customActivity=custom_activity,
     )
 
