@@ -17,6 +17,7 @@ class MemberAttrs:
         avatar: str,
         # badges: List[discord.PublicUserFlags] | None,
         activity: Optional[ActivityAttrs],
+        customActivity: Optional[str]
     ) -> None:
         self.name = name
         self.tag = tag
@@ -25,12 +26,12 @@ class MemberAttrs:
         self.avatar = avatar
         # self.badges = badges
         self.activity = activity
+        self.customActivity = customActivity
 
 
 class ActivityAttrs:
     def __init__(
         self,
-        # name: str,
         activity_type: str,
         image_large: str,
         image_small: str,
@@ -39,7 +40,6 @@ class ActivityAttrs:
         line3: str,
         line4: str,
     ) -> None:
-        # self.name = name
         self.type = activity_type
         self.image_large = image_large
         self.image_small = image_small
