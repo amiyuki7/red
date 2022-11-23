@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Optional, List, Tuple
-from discord import Status
+from discord import Status, Colour
 import asyncio
 import aiohttp
 
@@ -15,6 +15,7 @@ class MemberAttrs:
         nick: Optional[str],
         status: Status,
         avatar: str,
+        banner_color: Optional[Colour],
         # badges: List[discord.PublicUserFlags] | None,
         activities: List[ActivityAttrs],
         customActivity: Optional[str],
@@ -24,6 +25,7 @@ class MemberAttrs:
         self.nick = nick
         self.status = status
         self.avatar = avatar
+        self.banner_colour = banner_color
         # self.badges = badges
         self.activities = activities
         self.customActivity = customActivity
@@ -49,7 +51,9 @@ class ActivityAttrs:
         self.line4 = len(line4) > 35 and line4[:50] + "..." or line4
 
 
-async def fetch_bytes(session: aiohttp.ClientSession, url: str, id: str) -> Tuple[bytes, str]:
+async def fetch_bytes(
+    session: aiohttp.ClientSession, url: str, id: str
+) -> Tuple[bytes, str]:
     async with session.get(url) as response:
         # Debug
         print(response.status, response.content_type)
