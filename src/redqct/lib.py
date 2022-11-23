@@ -16,7 +16,7 @@ class MemberAttrs:
         status: Status,
         avatar: str,
         # badges: List[discord.PublicUserFlags] | None,
-        activity: List[ActivityAttrs],
+        activities: List[ActivityAttrs],
         customActivity: Optional[str],
     ) -> None:
         self.name = name
@@ -25,7 +25,7 @@ class MemberAttrs:
         self.status = status
         self.avatar = avatar
         # self.badges = badges
-        self.activity = activity
+        self.activity = activities
         self.customActivity = customActivity
 
 
