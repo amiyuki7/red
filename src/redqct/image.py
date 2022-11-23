@@ -4,7 +4,7 @@ from typing import Tuple, List, Optional
 from io import BytesIO
 from fontTools.ttLib import TTFont
 
-from discord import Status
+from discord import Status, Colour
 
 from .lib import MemberAttrs, fetch_all
 
@@ -16,6 +16,7 @@ class Cache_:
     __slots__ = (
         # "itemplate",
         "member_template",
+        "banner_template",
         "custom_activity_template",
         "dummy_activity_template",
         "activity_template",
@@ -42,6 +43,7 @@ class Cache_:
         # self.itemplate = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-1100x600.png")
         # fmt: off
         self.member_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-member-1100x600.png")
+        self.banner_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-banner-1100x150.png")
         self.custom_activity_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-custom-status-1100x100.png")
         self.dummy_activity_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-dummy-1100x335.png")
         self.activity_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-activity-1100x335.png")
@@ -51,19 +53,33 @@ class Cache_:
         self.status_mask = Image.open(f"{ROOT_DIR}/assets/mask_status_60.png")
         self.status_underlay = Image.open(f"{ROOT_DIR}/assets/status_underlay_69.png")
 
-        self.light_online = Image.open(f"{ROOT_DIR}/assets/status_online.png").resize((48, 47))
-        self.light_idle = Image.open(f"{ROOT_DIR}/assets/status_idle.png").resize((48, 47))
-        self.light_dnd = Image.open(f"{ROOT_DIR}/assets/status_dnd.png").resize((48, 47))
-        self.light_invis = Image.open(f"{ROOT_DIR}/assets/status_invis.png").resize((48, 47))
+        self.light_online = Image.open(f"{ROOT_DIR}/assets/status_online.png").resize(
+            (48, 47)
+        )
+        self.light_idle = Image.open(f"{ROOT_DIR}/assets/status_idle.png").resize(
+            (48, 47)
+        )
+        self.light_dnd = Image.open(f"{ROOT_DIR}/assets/status_dnd.png").resize(
+            (48, 47)
+        )
+        self.light_invis = Image.open(f"{ROOT_DIR}/assets/status_invis.png").resize(
+            (48, 47)
+        )
 
         self.bold_30 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans Bold.ttf", 30)
         self.bold_25 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans Bold.ttf", 25)
         self.bold_20 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans Bold.ttf", 20)
         self.heavy_25 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans Heavy.ttf", 25)
         self.reg_25 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans.ttf", 25)
-        self.noto_20 = ImageFont.truetype(f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 20)
-        self.noto_25 = ImageFont.truetype(f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 25)
-        self.noto_30 = ImageFont.truetype(f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 30)
+        self.noto_20 = ImageFont.truetype(
+            f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 20
+        )
+        self.noto_25 = ImageFont.truetype(
+            f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 25
+        )
+        self.noto_30 = ImageFont.truetype(
+            f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 30
+        )
 
         self.unisans = TTFont(f"{ROOT_DIR}/fonts/Uni Sans.ttf")
 
@@ -78,7 +94,9 @@ class Template:
 
     def __init__(self, template: Image.Image) -> None:
         # Alpha composing the background with nothing allows support of alpha values when calling Image.paste
-        self._background = Image.alpha_composite(Image.new("RGBA", template.size), template.convert("RGBA"))
+        self._background = Image.alpha_composite(
+            Image.new("RGBA", template.size), template.convert("RGBA")
+        )
 
     def draw(self, image: Image.Image, coords: Tuple[int, int]) -> None:
         self._background.paste(image, coords, image)
@@ -160,7 +178,12 @@ def draw_text(
         # If the character is supported by Unisans, use the wanted font. Else, use Noto
         font = [fallback, wanted_font][can_unisans[i]]
         # Render the individual character. If the font is a fallback Noto font, translate the y value up 4px for alignment
-        interface.text((x + net_offset, font == fallback and y - 4 or y), char, fill=colour, font=font)
+        interface.text(
+            (x + net_offset, font == fallback and y - 4 or y),
+            char,
+            fill=colour,
+            font=font,
+        )
         # Calculate the width of the character, add to offset
         net_offset += interface.textsize(char, font=font)[0]
 
@@ -168,13 +191,26 @@ def draw_text(
 
 
 def generate_member(
-    name: str, tag: str, nick: Optional[str], status: Status, avatar: Image.Image
+    name: str,
+    tag: str,
+    nick: Optional[str],
+    status: Status,
+    avatar: Image.Image,
+    banner_colour: Optional[Colour],
 ) -> Image.Image:
     """
     Generates the member piece of the overall image using a template
     """
     template = MemberTemplate()
-
+    if banner_colour:
+        rgb_banner_template = Cache.banner_template.convert("RGBA")
+        for y in range(rgb_banner_template.height):
+            for x in range(rgb_banner_template.width):
+                if rgb_banner_template.getpixel((x, y)) != (0, 0, 0, 0):
+                    rgb_banner_template.putpixel(
+                        (x, y), (banner_colour.r, banner_colour.g, banner_colour.b, 255)
+                    )
+        template.draw(rgb_banner_template, (0, 0))
     # Render avatar and light
     cropped_pfp = masked(avatar, Cache.pfp_mask)
     template.draw(cropped_pfp, (30, 50))
@@ -290,7 +326,12 @@ def generate_activity(
     if kwargs.get("dummy"):
         template = ActivityTemplate(dummy=True)
         edit = template.to_editable()
-        edit.text((51, 55), "CURRENTLY NOT DOING ANYTHING", fill=(255, 255, 255), font=Cache.heavy_25)
+        edit.text(
+            (51, 55),
+            "CURRENTLY NOT DOING ANYTHING",
+            fill=(255, 255, 255),
+            font=Cache.heavy_25,
+        )
         return template._background
     else:
         template = ActivityTemplate(dummy=False)
@@ -382,7 +423,9 @@ async def generate_img(attrs: MemberAttrs) -> Image.Image:
     avatar_bytes = [result[0] for result in results if result[1] == "avatar"][0]
     avatar_png = Image.open(BytesIO(avatar_bytes))
 
-    image_groups: List[List[Optional[Image.Image]]] = [[None, None] for _ in range(len(attrs.activities))]
+    image_groups: List[List[Optional[Image.Image]]] = [
+        [None, None] for _ in range(len(attrs.activities))
+    ]
 
     # Pairs all the activity images so that this structure is formed:
     # [(large0, small0), (large1, small1), (large2, small2), ... (largen, smalln)]
@@ -396,7 +439,9 @@ async def generate_img(attrs: MemberAttrs) -> Image.Image:
         elif img_type == "image_small":
             image_groups[int(idx)][1] = Image.open(BytesIO(result[0]))
 
-    member_piece = generate_member(attrs.name, attrs.tag, attrs.nick, attrs.status, avatar_png)
+    member_piece = generate_member(
+        attrs.name, attrs.tag, attrs.nick, attrs.status, avatar_png, attrs.banner_colour
+    )
 
     activity_pieces = [
         generate_activity(
@@ -413,10 +458,18 @@ async def generate_img(attrs: MemberAttrs) -> Image.Image:
 
     # Create a dummy piece if no activity pieces were generated
     if len(activity_pieces) == 0:
-        activity_pieces.append(generate_activity(None, None, "", "", "", "", "", dummy=True))
+        activity_pieces.append(
+            generate_activity(None, None, "", "", "", "", "", dummy=True)
+        )
 
     return (
         attrs.customActivity is not None
-        and stitch([member_piece, generate_custom_status(attrs.customActivity), *activity_pieces])
+        and stitch(
+            [
+                member_piece,
+                generate_custom_status(attrs.customActivity),
+                *activity_pieces,
+            ]
+        )
         or stitch([member_piece, *activity_pieces])
     )
