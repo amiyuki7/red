@@ -15,7 +15,7 @@ class MemberAttrs:
         nick: Optional[str],
         status: Status,
         avatar: str,
-        banner_color: Optional[Colour],
+        banner_colour: Optional[Colour],
         # badges: List[discord.PublicUserFlags] | None,
         activities: List[ActivityAttrs],
         customActivity: Optional[str],
@@ -25,7 +25,7 @@ class MemberAttrs:
         self.nick = nick
         self.status = status
         self.avatar = avatar
-        self.banner_colour = banner_color
+        self.banner_colour = banner_colour
         # self.badges = badges
         self.activities = activities
         self.customActivity = customActivity

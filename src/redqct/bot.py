@@ -9,12 +9,12 @@ import datetime
 
 load_dotenv()
 # Set this in .env
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("DEV_TOKEN")
 # BOT_TOKEN = os.getenv("DEV_TOKEN")
 assert type(BOT_TOKEN) is str
 
 intents = discord.Intents().all()
-bot = Bot(command_prefix="$", intents=intents)
+bot = Bot(command_prefix="!", intents=intents)
 
 
 @bot.event
@@ -26,7 +26,7 @@ async def on_ready():
 async def banner(ctx: Context, member: discord.Member):
     user = await bot.fetch_user(member.id)
     await ctx.send(
-        f"({user.accent_colour.r}, {user.accent_colour.g}, {user.accent_color.b})"
+        f"({user.accent_colour.r}, {user.accent_colour.g}, {user.accent_colour.b})"
     )
 
 
@@ -44,7 +44,7 @@ async def specs_of(ctx: Context, member: discord.Member):
 
     member_status = member.status
     user = await bot.fetch_user(member.id)
-    member_banner_colour = user.accent_color
+    member_banner_colour = user.accent_colour
     # CustomActivity is the custom status, which ofr this application, is not considered a "rich presence"
     without_custom = [
         actv
