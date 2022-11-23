@@ -397,7 +397,6 @@ async def generate_img(attrs: MemberAttrs) -> Image.Image:
             image_groups[int(idx)][1] = Image.open(BytesIO(result[0]))
 
     member_piece = generate_member(attrs.name, attrs.tag, attrs.nick, attrs.status, avatar_png)
-    custom_status_piece = generate_custom_status(attrs.customActivity)
 
     activity_pieces = [
         generate_activity(
@@ -416,4 +415,8 @@ async def generate_img(attrs: MemberAttrs) -> Image.Image:
     if len(activity_pieces) == 0:
         activity_pieces.append(generate_activity(None, None, "", "", "", "", "", dummy=True))
 
-    return stitch([member_piece, custom_status_piece, *activity_pieces])
+    return (
+        attrs.customActivity is not None
+        and stitch([member_piece, generate_custom_status(attrs.customActivity), *activity_pieces])
+        or stitch([member_piece, *activity_pieces])
+    )
