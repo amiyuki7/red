@@ -5,6 +5,7 @@ from .lib import *
 from .image import generate_img
 from discord.ext.commands import Bot, Context
 from dotenv import load_dotenv
+from PIL import Image
 import datetime
 
 load_dotenv()
@@ -24,6 +25,16 @@ async def on_ready():
 
 @bot.command()
 async def specs_of(ctx: Context, member: discord.Member):
+    img = await specs_img(member)
+
+    with io.BytesIO() as bin:
+        img.save(bin, "png")
+        bin.seek(0)
+        await ctx.send(file=discord.File(fp=bin, filename="out.png"))
+
+
+# @bot.command()
+async def specs_img(member: discord.Member) -> Image.Image:
     member_name = member.name
     member_tag = member.discriminator
     member_nick = member.nick
@@ -216,16 +227,13 @@ async def specs_of(ctx: Context, member: discord.Member):
         banner_colour=member_banner_colour,
     )
 
-    # Debug showing the image
     img = await generate_img(attrs)
-    # img.show()
+    return img
 
-    with io.BytesIO() as bin:
-        img.save(bin, "png")
-        bin.seek(0)
-        await ctx.send(file=discord.File(fp=bin, filename="out.png"))
-
-    # return attrs
+    # with io.BytesIO() as bin:
+    #     img.save(bin, "png")
+    #     bin.seek(0)
+    #     await ctx.send(file=discord.File(fp=bin, filename="out.png"))
 
 
 async def main():
