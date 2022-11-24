@@ -1,6 +1,10 @@
 from __future__ import annotations
 from typing import Optional, List
 from discord import Status, Colour
+import json
+
+with open("id_hash.json", "r") as f:
+    id_to_hash = json.load(f)
 
 
 class MemberAttrs:

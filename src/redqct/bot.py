@@ -272,6 +272,13 @@ async def specs_img(member: discord.Member) -> Image.Image:
             # """.strip()
             # )
 
+            # Handles the activities that are officially supported by discord
+            if (
+                member_activity_large_img == ""
+                and id_to_hash[activity.application_id] is not None
+            ):
+                member_activity_large_img = f"https://cdn.discordapp.com/app-icons/{activity.application_id}/{id_to_hash[activity.application_id]}.png"
+
             # If the member has an activity, instantiate and ActivityAttrs object. Else, make it None
             activity_attrs = ActivityAttrs(
                 activity_type=member_activity_type,
