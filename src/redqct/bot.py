@@ -4,6 +4,7 @@ import discord
 from .lib import *
 from .image import generate_img
 from discord.ext.commands import Bot, Context
+from discord.ext import tasks
 from dotenv import load_dotenv
 from PIL import Image
 import datetime
@@ -21,6 +22,54 @@ bot = Bot(command_prefix="!", intents=intents)
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
+    task_loop.start()
+
+
+@tasks.loop(seconds=1)
+async def task_loop():
+    print("Task loop called")
+
+
+@bot.command()
+async def track(ctx: Context, member: discord.Member, offset: Optional[str]):
+    h_offset = 0
+    m_offset = 0
+    if offset:
+        offset = offset.strip()
+        # Everything after the sign
+        parts = offset[1:].split(":")
+
+        try:
+            # A ton of rules the formatting of the offset must follow
+            assert offset[0] == "+" or offset[0] == "-"
+            assert all(x.isdigit() for x in parts)
+            assert len(parts) == 1 or len(parts) == 2
+
+            # Check that the hours and minutes offset is within reason
+            assert 0 <= int(parts[0]) <= 23
+            h_offset = int(parts[0])
+
+            if len(parts) == 2:
+                mins = parts[1]
+                assert 0 <= int(mins) <= 59
+                m_offset = int(mins)
+
+        except AssertionError:
+            # Replies to the member
+            await ctx.send(
+                f"`{offset}` is an invalid offset\nOffset format: `[+/-][HOURS]:[MINS?]`\nExamples: `+10:00` | `+5` | `+01:30` | `-4` | `-8:30`",
+                reference=ctx.message,
+            )
+            return
+
+        fmt_h = len(str(h_offset)) == 1 and f"0{h_offset}" or str(h_offset)
+        fmt_m = len(str(m_offset)) == 1 and f"0{m_offset}" or str(m_offset)
+
+        await ctx.send(f"Tracking <@{member.id}> @ timezone = `UTC{offset[0]}{fmt_h}:{fmt_m}`")
+        # TODO: Call some library track function
+    else:
+        await ctx.send(f"Tracking {member} @ timezone = UTC")
+        # TODO: Call some library track function
 
 
 @bot.command()
