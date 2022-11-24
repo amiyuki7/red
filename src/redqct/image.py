@@ -53,33 +53,19 @@ class Cache_:
         self.status_mask = Image.open(f"{ROOT_DIR}/assets/mask_status_60.png")
         self.status_underlay = Image.open(f"{ROOT_DIR}/assets/status_underlay_69.png")
 
-        self.light_online = Image.open(f"{ROOT_DIR}/assets/status_online.png").resize(
-            (48, 47)
-        )
-        self.light_idle = Image.open(f"{ROOT_DIR}/assets/status_idle.png").resize(
-            (48, 47)
-        )
-        self.light_dnd = Image.open(f"{ROOT_DIR}/assets/status_dnd.png").resize(
-            (48, 47)
-        )
-        self.light_invis = Image.open(f"{ROOT_DIR}/assets/status_invis.png").resize(
-            (48, 47)
-        )
+        self.light_online = Image.open(f"{ROOT_DIR}/assets/status_online.png").resize((48, 47))
+        self.light_idle = Image.open(f"{ROOT_DIR}/assets/status_idle.png").resize((48, 47))
+        self.light_dnd = Image.open(f"{ROOT_DIR}/assets/status_dnd.png").resize((48, 47))
+        self.light_invis = Image.open(f"{ROOT_DIR}/assets/status_invis.png").resize((48, 47))
 
         self.bold_30 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans Bold.ttf", 30)
         self.bold_25 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans Bold.ttf", 25)
         self.bold_20 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans Bold.ttf", 20)
         self.heavy_25 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans Heavy.ttf", 25)
         self.reg_25 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans.ttf", 25)
-        self.noto_20 = ImageFont.truetype(
-            f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 20
-        )
-        self.noto_25 = ImageFont.truetype(
-            f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 25
-        )
-        self.noto_30 = ImageFont.truetype(
-            f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 30
-        )
+        self.noto_20 = ImageFont.truetype(f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 20)
+        self.noto_25 = ImageFont.truetype(f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 25)
+        self.noto_30 = ImageFont.truetype(f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 30)
 
         self.unisans = TTFont(f"{ROOT_DIR}/fonts/Uni Sans.ttf")
 
@@ -94,9 +80,7 @@ class Template:
 
     def __init__(self, template: Image.Image) -> None:
         # Alpha composing the background with nothing allows support of alpha values when calling Image.paste
-        self._background = Image.alpha_composite(
-            Image.new("RGBA", template.size), template.convert("RGBA")
-        )
+        self._background = Image.alpha_composite(Image.new("RGBA", template.size), template.convert("RGBA"))
 
     def draw(self, image: Image.Image, coords: Tuple[int, int]) -> None:
         self._background.paste(image, coords, image)
@@ -423,9 +407,7 @@ async def generate_img(attrs: MemberAttrs) -> Image.Image:
     avatar_bytes = [result[0] for result in results if result[1] == "avatar"][0]
     avatar_png = Image.open(BytesIO(avatar_bytes))
 
-    image_groups: List[List[Optional[Image.Image]]] = [
-        [None, None] for _ in range(len(attrs.activities))
-    ]
+    image_groups: List[List[Optional[Image.Image]]] = [[None, None] for _ in range(len(attrs.activities))]
 
     # Pairs all the activity images so that this structure is formed:
     # [(large0, small0), (large1, small1), (large2, small2), ... (largen, smalln)]
@@ -458,9 +440,7 @@ async def generate_img(attrs: MemberAttrs) -> Image.Image:
 
     # Create a dummy piece if no activity pieces were generated
     if len(activity_pieces) == 0:
-        activity_pieces.append(
-            generate_activity(None, None, "", "", "", "", "", dummy=True)
-        )
+        activity_pieces.append(generate_activity(None, None, "", "", "", "", "", dummy=True))
 
     return (
         attrs.customActivity is not None
