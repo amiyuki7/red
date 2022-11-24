@@ -21,6 +21,8 @@ echo "~~~ Making scripts runnable ~~~"
 chmod +x ./*.sh
 echo "~~~ Creating .env ~~~"
 echo "BOT_TOKEN=\"\"\nDEV_TOKEN=\"\"" >> .env
+echo "~~~ Creating user_imgs dir ~~~"
+mkdir user_imgs
 
 echo "${SUCCESS_PREFIX} Setup complete!"
 
