@@ -1,6 +1,23 @@
 from typing import List
 
 
+# fmt: off
+PRESETS = {
+    "Spotify": (101, 213, 109), #65d56d
+    "VALORANT": (253, 83, 98), #fd5362
+    "Rocket League": (0, 143, 226), #008fe2
+    "Overwatch 2": (242, 105, 28), #f2691c
+    "Tom Clancy's Rainbow Six Siege": (255, 216, 0),  #ffd800
+    "Grand Theft Auto V": (86, 136, 53), #568835
+    "Minecraft": (171, 161, 159), #aba19f
+    "Roblox": (219, 33, 25), #db2119
+    "Genshin Impact": (254, 232, 208), #fee8d0
+    "Assassin's Creed Valhalla": (35, 153, 144), #239990
+    "The Elder Scrolls V: Skyrim": (255, 255, 255), #ffffff
+}
+# fmt: on
+
+
 class Users:
     def __init__(self) -> None:
         self.users: List[TrackedUser] = []
