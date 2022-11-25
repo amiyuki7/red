@@ -65,9 +65,7 @@ async def track(ctx: Context, member: discord.Member, offset: Optional[str]):
         fmt_h = len(str(h_offset)) == 1 and f"0{h_offset}" or str(h_offset)
         fmt_m = len(str(m_offset)) == 1 and f"0{m_offset}" or str(m_offset)
 
-        await ctx.send(
-            f"Tracking <@{member.id}> @ timezone = `UTC{offset[0]}{fmt_h}:{fmt_m}`"
-        )
+        await ctx.send(f"Tracking <@{member.id}> @ timezone = `UTC{offset[0]}{fmt_h}:{fmt_m}`")
         # TODO: Call some library track function
     else:
         await ctx.send(f"Tracking {member} @ timezone = UTC")
@@ -100,30 +98,15 @@ async def specs_img(member: discord.Member) -> Image.Image:
     user = await bot.fetch_user(member.id)
     member_banner_colour = user.accent_colour
     # CustomActivity is the custom status, which ofr this application, is not considered a "rich presence"
-    without_custom = [
-        actv
-        for actv in member.activities
-        if not isinstance(actv, discord.CustomActivity)
-    ]
+    without_custom = [actv for actv in member.activities if not isinstance(actv, discord.CustomActivity)]
     # Use the first non-custom activity
     # TODO: Use all the activites and track them into a graph
     activities = len(without_custom) > 0 and without_custom or None
 
     custom_activity = (
         # custom activity = (there is a cusom activity) and (the custom activity) or None
-        len(
-            [
-                actv
-                for actv in member.activities
-                if isinstance(actv, discord.CustomActivity)
-            ]
-        )
-        != 0
-        and [
-            actv
-            for actv in member.activities
-            if isinstance(actv, discord.CustomActivity)
-        ][0].name
+        len([actv for actv in member.activities if isinstance(actv, discord.CustomActivity)]) != 0
+        and [actv for actv in member.activities if isinstance(actv, discord.CustomActivity)][0].name
         or None
     )
 
@@ -149,18 +132,12 @@ async def specs_img(member: discord.Member) -> Image.Image:
             member_activity_name = activity.name or member_activity_name
             member_activity_type = activity.type.name
 
-            if isinstance(activity, discord.Activity) and not isinstance(
-                activity, discord.Streaming
-            ):
+            if isinstance(activity, discord.Activity) and not isinstance(activity, discord.Streaming):
                 member_activity_details = activity.details or member_activity_details
                 member_activity_state = activity.state or member_activity_state
                 # Handle None case with an or clause
-                member_activity_large_img = (
-                    activity.large_image_url or member_activity_large_img
-                )
-                member_activity_small_img = (
-                    activity.small_image_url or member_activity_small_img
-                )
+                member_activity_large_img = activity.large_image_url or member_activity_large_img
+                member_activity_small_img = activity.small_image_url or member_activity_small_img
                 member_activity_end = activity.end
                 member_activity_start = activity.start
 
@@ -208,9 +185,7 @@ async def specs_img(member: discord.Member) -> Image.Image:
                 now = datetime.datetime.now().timestamp()
                 now = datetime.datetime.fromtimestamp(now, tz=datetime.timezone.utc)
                 time_diff = member_activity_end - now
-                raw_time_remaining = divmod(
-                    time_diff.days * (24 * 60 * 60) + time_diff.seconds, 60
-                )
+                raw_time_remaining = divmod(time_diff.days * (24 * 60 * 60) + time_diff.seconds, 60)
                 minutes, seconds = raw_time_remaining
                 minutes = len(str(minutes)) == 1 and f"0{minutes}" or minutes
                 seconds = len(str(seconds)) == 1 and f"0{seconds}" or seconds
@@ -273,11 +248,17 @@ async def specs_img(member: discord.Member) -> Image.Image:
             # )
 
             # Handles the activities that are officially supported by discord
-            if (
-                member_activity_large_img == ""
-                and id_to_hash[activity.application_id] is not None
-            ):
-                member_activity_large_img = f"https://cdn.discordapp.com/app-icons/{activity.application_id}/{id_to_hash[activity.application_id]}.png"
+            print(member_activity_large_img)
+
+            if member_activity_large_img == "":
+                # Check if the name of the game is in the data
+                if obj := NAMEMAP[line_1]:
+                    # Check if a hash for the activity exists
+                    if obj["icon_hash"]:
+                        # Interpolate data into an endpoint
+                        member_activity_large_img = f'https://cdn.discordapp.com/app-icons/{obj["application_id"]}/{obj["icon_hash"]}.png'
+
+            print(f"Large img url: {member_activity_large_img}")
 
             # If the member has an activity, instantiate and ActivityAttrs object. Else, make it None
             activity_attrs = ActivityAttrs(
