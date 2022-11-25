@@ -3,8 +3,18 @@ from typing import Optional, List
 from discord import Status, Colour
 import json
 
-with open("id_hash.json", "r") as f:
-    id_to_hash = json.load(f)
+with open("namemap.json", "r") as f:
+    """
+    NAMEMAP is in this structure:
+    {
+        "game_name": {
+            "application_id": str
+            "icon_hash": Optional[str]
+        },
+        ...
+    }
+    """
+    NAMEMAP: dict[str, dict[str, Optional[str]]] = json.load(f)
 
 
 class MemberAttrs:
