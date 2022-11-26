@@ -2,6 +2,7 @@ import io
 import os
 import discord
 from .lib import *
+from .lib.track import Users
 from .image import generate_img
 from discord.ext.commands import Bot, Context
 from discord.ext import tasks
@@ -22,6 +23,7 @@ bot = Bot(command_prefix="$", intents=intents)
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
+    Users.load_existing(bot=bot)
     task_loop.start()
 
 
@@ -32,6 +34,10 @@ async def task_loop():
 
 @bot.command()
 async def track(ctx: Context, member: discord.Member, offset: Optional[str]):
+    # For now, only allow myself and @VladP1234 to use this command
+    if not ctx.author.id in [565054806083895306, 703204753743806585]:
+        return
+
     h_offset = 0
     m_offset = 0
     if offset:
@@ -65,11 +71,47 @@ async def track(ctx: Context, member: discord.Member, offset: Optional[str]):
         fmt_h = len(str(h_offset)) == 1 and f"0{h_offset}" or str(h_offset)
         fmt_m = len(str(m_offset)) == 1 and f"0{m_offset}" or str(m_offset)
 
-        await ctx.send(f"Tracking <@{member.id}> @ timezone = `UTC{offset[0]}{fmt_h}:{fmt_m}`")
-        # TODO: Call some library track function
+        if Users.exists(member.id):
+            await ctx.send(
+                f"{member.mention} is already being tracked. If you want to change the offset, try using `$untrack` first"
+            )
+        else:
+            # Track the user if it doesn't already exist in Users
+            Users.track(
+                member.id,
+                offset[0] == "+" and int(fmt_h) or -int(fmt_h),
+                offset[0] == "+" and int(fmt_m) or -int(fmt_m),
+            )
+            await ctx.send(f"Tracking {member.mention} @ timezone = `UTC{offset[0]}{fmt_h}:{fmt_m}`")
     else:
-        await ctx.send(f"Tracking {member} @ timezone = UTC")
-        # TODO: Call some library track function
+        if Users.exists(member.id):
+            await ctx.send(
+                f"{member.mention} is already being tracked. If you want to change the offset, try using `$untrack` first"
+            )
+        else:
+            # Track the user if it doesn't already exist in Users
+            Users.track(member.id, 0, 0)
+            await ctx.send(f"Tracking {member.mention} @ timezone = `UTC`")
+
+
+@bot.command()
+async def untrack(ctx: Context, member: discord.Member):
+    # For now, only allow myself and @VladP1234 to use this command
+    if not ctx.author.id in [565054806083895306, 703204753743806585]:
+        await ctx.send(f"Can't untrack - {member.mention} was not already tracked")
+        return
+
+    Users.untrack(member.id)
+    await ctx.send(f"Stopped tracking {member.mention} and resetted their activity graph")
+
+
+@bot.command()
+async def show_tracked(ctx: Context):
+    # For now, only allow myself and @VladP1234 to use this command
+    if not ctx.author.id in [565054806083895306, 703204753743806585]:
+        return
+
+    await ctx.send(str(Users.users))
 
 
 @bot.command()

@@ -1,4 +1,10 @@
+import os
+import shutil
+import json
+import discord
+from pathlib import Path
 from typing import List
+from .singleton import singleton
 
 
 # fmt: off
@@ -7,27 +13,76 @@ PRESETS = {
     "VALORANT": (253, 83, 98), #fd5362
     "Rocket League": (0, 143, 226), #008fe2
     "Overwatch 2": (242, 105, 28), #f2691c
-    "Tom Clancy's Rainbow Six Siege": (255, 216, 0),  #ffd800
+    "Tom Clancy's Rainbow Six Siege": (255, 216, 0), #ffd800
     "Grand Theft Auto V": (86, 136, 53), #568835
-    "Minecraft": (171, 161, 159), #aba19f
-    "Roblox": (219, 33, 25), #db2119
+    "Minecraft": (116, 81, 57), #745139
+    "Roblox": (143, 159, 173), #8f9fad
     "Genshin Impact": (254, 232, 208), #fee8d0
     "Assassin's Creed Valhalla": (35, 153, 144), #239990
     "The Elder Scrolls V: Skyrim": (255, 255, 255), #ffffff
+    "YouTube Music": (245, 2, 27), #f5021b
+    "YouTube": (193, 45, 41), #c12d29
 }
 # fmt: on
 
 
-class Users:
+@singleton
+class Users_:
+    """
+    Singleton structure that acts on a List[TrackedUser]
+    """
+
     def __init__(self) -> None:
         self.users: List[TrackedUser] = []
 
-    def track(self, user: str) -> None:
+    def load_existing(self, bot: discord.Client) -> None:
+        """
+        Checks through `data/`, loading any currently tracked members into `self.users`
+        """
+        data_dir = f"{Path(__file__).resolve().parents[3]}/data"
+        guild = bot.get_guild(911203235522543637)
+        assert guild
+
+        ids = os.listdir(data_dir)
+        for id in ids:
+            # E Dorm guild ID
+            if guild.get_member(int(id)):
+                # Load the member into self.users
+                with open(f"{data_dir}/{id}/utc_offset.json", "r") as f:
+                    offset_data = json.load(f)
+
+                self.users.append(
+                    TrackedUser(
+                        id=id,
+                        utc_offset_h=offset_data["h_off"],
+                        utc_offset_m=offset_data["m_off"],
+                    )
+                )
+            else:
+                # Member is not in the server - delete their data folder and its contents
+                shutil.rmtree(f"{data_dir}/{id}")
+
+    def exists(self, id: int) -> bool:
+        """
+        Checks if an user is being currently tracked
+        """
+        return any(user.id == str(id) for user in self.users)
+
+    def track(self, user: int, h_off: int, m_off: int) -> None:
         self.users.append(
             TrackedUser(
-                id=user,
+                id=str(user),
+                utc_offset_h=h_off,
+                utc_offset_m=m_off,
             )
         )
+
+    def untrack(self, user: int) -> None:
+        target_user = [u for u in self.users if u.id == str(user)][0]
+        self.users.remove(target_user)
+        # Delete the member's data folder and its contents
+        if os.path.isdir(dir := f"{Path(__file__).resolve().parents[3]}/data/{user}"):
+            shutil.rmtree(dir)
 
     def update_graphs(self) -> None:
         """
@@ -39,10 +94,35 @@ class Users:
 
 
 class TrackedUser:
-    def __init__(self, id: str) -> None:
+    """
+    Structure representing a member with their activity being tracked. Responsible for dealing with each member's graph IO
+    """
+
+    def __init__(self, id: str, utc_offset_h: int, utc_offset_m: int) -> None:
         self.id = id
-        self.utc_offset: int = 0
-        self.img_path: str = ""
+        self.utc_offset_h: int = utc_offset_h
+        self.utc_offset_m: int = utc_offset_m
+        self.legend: List[str] = []
+        self.setup_dir()
+
+    def setup_dir(self) -> None:
+        """
+        Creates a new directory entry in `data/` and populates it if it doesn't already exist
+        """
+        root_dir = Path(__file__).resolve().parents[3]
+        data_dir = f"{root_dir}/data/{self.id}"
+
+        if not os.path.isdir(data_dir):
+            os.mkdir(data_dir)
+
+            with open(f"{data_dir}/utc_offset.json", "w") as f:
+                json.dump(
+                    {
+                        "h_off": self.utc_offset_h,
+                        "m_off": self.utc_offset_m,
+                    },
+                    f,
+                )
 
     def check_clear(self) -> None:
         """ """
@@ -55,3 +135,6 @@ class TrackedUser:
         # Get the user's current activities via the bot
         # Draw a 1px line at that specific time in a specific colour depending on the activities present now
         pass
+
+
+Users = Users_()
