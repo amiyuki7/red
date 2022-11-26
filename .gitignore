@@ -4,4 +4,4 @@
 .env
 __pycache__/
 venv/
-user_imgs/
+data/
