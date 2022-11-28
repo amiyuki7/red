@@ -525,7 +525,11 @@ def generate_empty_graph(name: str, tag: str, date: datetime, h_off: int, m_off:
             # Won't reach this exhaustive case but pyright wants it
             timezone = ""
 
-    draw_text(edit, f"{name}#{tag}'s", (255, 255, 255), (46, 45), Cache.bold_40, Cache.noto_40)
+    name_offset = draw_text(edit, name, (255, 255, 255), (46, 45), Cache.bold_40, Cache.noto_40)
+    tag_offset = draw_text(
+        edit, f"#{tag}", (167, 169, 172), (46 + name_offset, 45), Cache.bold_40, Cache.noto_40
+    )
+    draw_text(edit, "'s", (255, 255, 255), (46 + name_offset + tag_offset, 45), Cache.bold_40, Cache.noto_40)
     draw_text(
         edit,
         f"Activity Graph ({date.day} {mo} {date.year} / {timezone})",
