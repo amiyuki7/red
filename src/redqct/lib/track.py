@@ -125,6 +125,14 @@ class TrackedUser:
                     f,
                 )
 
+            shutil.copy(
+                f"{root_dir}/assets/redqct-graph-empty-template-1920x1080.png",
+                f"{data_dir}/graph_yesterday.png",
+            )
+            shutil.copy(
+                f"{root_dir}/assets/redqct-graph-empty-template-1920x1080.png",
+                f"{data_dir}/graph_today.png",
+            )
     def check_clear(self) -> None:
         """ """
         # If it's exactly midnight for the user (relative to their utc offset), clear their graph
