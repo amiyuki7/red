@@ -33,6 +33,13 @@ async def task_loop():
     print("Task loop called")
 
 
+# command for just testing random stuff
+@bot.command()
+async def test(ctx: Context, member: discord.Member):
+    for flag in member.public_flags.all():
+        await ctx.send(flag.name)
+
+
 @bot.command()
 async def track(ctx: Context, member: discord.Member, offset: Optional[str]):
     # For now, only allow myself and @VladP1234 to use this command
@@ -83,7 +90,9 @@ async def track(ctx: Context, member: discord.Member, offset: Optional[str]):
                 offset[0] == "+" and int(fmt_h) or -int(fmt_h),
                 offset[0] == "+" and int(fmt_m) or -int(fmt_m),
             )
-            await ctx.send(f"Tracking {member.mention} @ timezone = `UTC{offset[0]}{fmt_h}:{fmt_m}`")
+            await ctx.send(
+                f"Tracking {member.mention} @ timezone = `UTC{offset[0]}{fmt_h}:{fmt_m}`"
+            )
     else:
         if Users.exists(member.id):
             await ctx.send(
@@ -103,7 +112,9 @@ async def untrack(ctx: Context, member: discord.Member):
         return
 
     Users.untrack(member.id)
-    await ctx.send(f"Stopped tracking {member.mention} and resetted their activity graph")
+    await ctx.send(
+        f"Stopped tracking {member.mention} and resetted their activity graph"
+    )
 
 
 @bot.command()
@@ -141,15 +152,30 @@ async def specs_img(member: discord.Member) -> Image.Image:
     user = await bot.fetch_user(member.id)
     member_banner_colour = user.accent_colour
     # CustomActivity is the custom status, which ofr this application, is not considered a "rich presence"
-    without_custom = [actv for actv in member.activities if not isinstance(actv, discord.CustomActivity)]
+    without_custom = [
+        actv
+        for actv in member.activities
+        if not isinstance(actv, discord.CustomActivity)
+    ]
     # Use the first non-custom activity
     # TODO: Use all the activites and track them into a graph
     activities = len(without_custom) > 0 and without_custom or None
 
     custom_activity = (
         # custom activity = (there is a cusom activity) and (the custom activity) or None
-        len([actv for actv in member.activities if isinstance(actv, discord.CustomActivity)]) != 0
-        and [actv for actv in member.activities if isinstance(actv, discord.CustomActivity)][0].name
+        len(
+            [
+                actv
+                for actv in member.activities
+                if isinstance(actv, discord.CustomActivity)
+            ]
+        )
+        != 0
+        and [
+            actv
+            for actv in member.activities
+            if isinstance(actv, discord.CustomActivity)
+        ][0].name
         or None
     )
 
@@ -175,12 +201,18 @@ async def specs_img(member: discord.Member) -> Image.Image:
             member_activity_name = activity.name or member_activity_name
             member_activity_type = activity.type.name
 
-            if isinstance(activity, discord.Activity) and not isinstance(activity, discord.Streaming):
+            if isinstance(activity, discord.Activity) and not isinstance(
+                activity, discord.Streaming
+            ):
                 member_activity_details = activity.details or member_activity_details
                 member_activity_state = activity.state or member_activity_state
                 # Handle None case with an or clause
-                member_activity_large_img = activity.large_image_url or member_activity_large_img
-                member_activity_small_img = activity.small_image_url or member_activity_small_img
+                member_activity_large_img = (
+                    activity.large_image_url or member_activity_large_img
+                )
+                member_activity_small_img = (
+                    activity.small_image_url or member_activity_small_img
+                )
                 member_activity_end = activity.end
                 member_activity_start = activity.start
 
@@ -228,7 +260,9 @@ async def specs_img(member: discord.Member) -> Image.Image:
                 now = datetime.datetime.now().timestamp()
                 now = datetime.datetime.fromtimestamp(now, tz=datetime.timezone.utc)
                 time_diff = member_activity_end - now
-                raw_time_remaining = divmod(time_diff.days * (24 * 60 * 60) + time_diff.seconds, 60)
+                raw_time_remaining = divmod(
+                    time_diff.days * (24 * 60 * 60) + time_diff.seconds, 60
+                )
                 minutes, seconds = raw_time_remaining
                 minutes = len(str(minutes)) == 1 and f"0{minutes}" or minutes
                 seconds = len(str(seconds)) == 1 and f"0{seconds}" or seconds
