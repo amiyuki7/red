@@ -1,5 +1,6 @@
 from pathlib import Path
 from PIL import Image, ImageFont, ImageDraw
+from datetime import datetime
 from typing import Tuple, List, Optional
 from io import BytesIO
 from fontTools.ttLib import TTFont
@@ -21,6 +22,7 @@ class Cache_:
         "custom_activity_template",
         "dummy_activity_template",
         "activity_template",
+        "graph_template",
         "pfp_mask",
         "activity_mask",
         "status_mask",
@@ -29,11 +31,14 @@ class Cache_:
         "light_idle",
         "light_dnd",
         "light_invis",
+        "bold_40",
         "bold_30",
         "bold_25",
         "bold_20",
         "heavy_25",
         "reg_25",
+        "noto_40",
+        "noto_30",
         "noto_20",
         "noto_25",
         "noto_30",
@@ -48,6 +53,7 @@ class Cache_:
         self.custom_activity_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-custom-status-1100x100.png")
         self.dummy_activity_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-dummy-1100x335.png")
         self.activity_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-activity-1100x335.png")
+        self.graph_template = Image.open(f"{ROOT_DIR}/assets/redqct-graph-empty-template-1920x1080.png")
         # fmt: on
         self.pfp_mask = Image.open(f"{ROOT_DIR}/assets/mask_pfp.png")
         self.activity_mask = Image.open(f"{ROOT_DIR}/assets/mask_activity.png")
@@ -59,11 +65,14 @@ class Cache_:
         self.light_dnd = Image.open(f"{ROOT_DIR}/assets/status_dnd.png").resize((48, 47))
         self.light_invis = Image.open(f"{ROOT_DIR}/assets/status_invis.png").resize((48, 47))
 
+        self.bold_40 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans Bold.ttf", 40)
         self.bold_30 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans Bold.ttf", 30)
         self.bold_25 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans Bold.ttf", 25)
         self.bold_20 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans Bold.ttf", 20)
         self.heavy_25 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans Heavy.ttf", 25)
         self.reg_25 = ImageFont.truetype(f"{ROOT_DIR}/fonts/Uni Sans.ttf", 25)
+        self.noto_40 = ImageFont.truetype(f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 40)
+        self.noto_30 = ImageFont.truetype(f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 30)
         self.noto_20 = ImageFont.truetype(f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 20)
         self.noto_25 = ImageFont.truetype(f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 25)
         self.noto_30 = ImageFont.truetype(f"{ROOT_DIR}/fonts/NotoSansMonoCJK-VF.ttf", 30)
@@ -109,6 +118,11 @@ class ActivityTemplate(Template):
             super().__init__(Cache.dummy_activity_template)
         else:
             super().__init__(Cache.activity_template)
+
+
+class GraphTemplate(Template):
+    def __init__(self) -> None:
+        super().__init__(Cache.graph_template)
 
 
 def masked(img: Image.Image, mask: Image.Image) -> Image.Image:
@@ -454,3 +468,71 @@ async def generate_img(attrs: MemberAttrs) -> Image.Image:
         )
         or stitch([member_piece, *activity_pieces])
     )
+
+
+def generate_empty_graph(name: str, tag: str, date: datetime, h_off: int, m_off: int) -> Image.Image:
+    """
+    Fills out a graph template with the user's name, tag, day and timezone
+    """
+    template = GraphTemplate()
+    edit = template.to_editable()
+
+    match date.month:
+        case 1:
+            mo = "January"
+        case 2:
+            mo = "February"
+        case 3:
+            mo = "March"
+        case 4:
+            mo = "April"
+        case 5:
+            mo = "May"
+        case 6:
+            mo = "June"
+        case 7:
+            mo = "July"
+        case 8:
+            mo = "August"
+        case 9:
+            mo = "September"
+        case 10:
+            mo = "October"
+        case 11:
+            mo = "November"
+        case 12:
+            mo = "December"
+        case _:
+            # Won't reach this exhaustive case but pyright wants it
+            mo = ""
+
+    match (h_off, m_off):
+        case (0, 0):
+            timezone = "UTC"
+        case (h, m) if h == 0 and m > 0:
+            timezone = f"UTC + 0:{m < 10 and f'0{m}' or m}"
+        case (h, m) if h == 0 and m < 0:
+            timezone = f"UTC - 0:{(m := abs(m)) < 10 and f'0{m}' or m}"
+        case (h, m) if h < 0 and m < 0:
+            timezone = f"UTC - {abs(h)}:{(m := abs(m)) < 10 and f'0{m}' or m}"
+        case (h, m) if h < 0 and m == 0:
+            timezone = f"UTC - {abs(h)}"
+        case (h, m) if h > 0 and m > 0:
+            timezone = f"UTC + {h}:{m < 10 and f'0{m}' or m}"
+        case (h, m) if h > 0 and m == 0:
+            timezone = f"UTC + {h}"
+        case _:
+            # Won't reach this exhaustive case but pyright wants it
+            timezone = ""
+
+    draw_text(edit, f"{name}#{tag}'s", (255, 255, 255), (46, 45), Cache.bold_40, Cache.noto_40)
+    draw_text(
+        edit,
+        f"Activity Graph ({date.day} {mo} {date.year} / {timezone})",
+        (255, 255, 255),
+        (46, 105),
+        Cache.bold_40,
+        Cache.noto_40,
+    )
+
+    return template._background

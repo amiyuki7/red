@@ -3,7 +3,7 @@ import os
 import discord
 from typing import Optional
 from .lib import MemberAttrs, ActivityAttrs, NAMEMAP
-from .lib.track import Users
+from .lib.track import Users_
 from .lib.image import generate_img
 from discord.ext.commands import Bot, Context
 from discord.ext import tasks
@@ -24,13 +24,19 @@ bot = Bot(command_prefix="$", intents=intents)
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
-    Users.load_existing(bot=bot)
+    global Users
+    Users = Users_(bot=bot)
+    Users.load_existing()
     task_loop.start()
 
 
-@tasks.loop(seconds=60)
+@tasks.loop(seconds=1)
 async def task_loop():
     print("Task loop called")
+    s = datetime.datetime.utcnow().second
+    if s == 0:
+        # A new minute
+        await Users.update_graphs()
 
 
 # command for just testing random stuff
@@ -86,13 +92,11 @@ async def track(ctx: Context, member: discord.Member, offset: Optional[str]):
         else:
             # Track the user if it doesn't already exist in Users
             Users.track(
-                member.id,
+                str(member.id),
                 offset[0] == "+" and int(fmt_h) or -int(fmt_h),
                 offset[0] == "+" and int(fmt_m) or -int(fmt_m),
             )
-            await ctx.send(
-                f"Tracking {member.mention} @ timezone = `UTC{offset[0]}{fmt_h}:{fmt_m}`"
-            )
+            await ctx.send(f"Tracking {member.mention} @ timezone = `UTC{offset[0]}{fmt_h}:{fmt_m}`")
     else:
         if Users.exists(member.id):
             await ctx.send(
@@ -100,7 +104,11 @@ async def track(ctx: Context, member: discord.Member, offset: Optional[str]):
             )
         else:
             # Track the user if it doesn't already exist in Users
-            Users.track(member.id, 0, 0)
+            Users.track(
+                str(member.id),
+                0,
+                0,
+            )
             await ctx.send(f"Tracking {member.mention} @ timezone = `UTC`")
 
 
@@ -112,9 +120,7 @@ async def untrack(ctx: Context, member: discord.Member):
         return
 
     Users.untrack(member.id)
-    await ctx.send(
-        f"Stopped tracking {member.mention} and resetted their activity graph"
-    )
+    await ctx.send(f"Stopped tracking {member.mention} and resetted their activity graph")
 
 
 @bot.command()
@@ -152,30 +158,15 @@ async def specs_img(member: discord.Member) -> Image.Image:
     user = await bot.fetch_user(member.id)
     member_banner_colour = user.accent_colour
     # CustomActivity is the custom status, which ofr this application, is not considered a "rich presence"
-    without_custom = [
-        actv
-        for actv in member.activities
-        if not isinstance(actv, discord.CustomActivity)
-    ]
+    without_custom = [actv for actv in member.activities if not isinstance(actv, discord.CustomActivity)]
     # Use the first non-custom activity
     # TODO: Use all the activites and track them into a graph
     activities = len(without_custom) > 0 and without_custom or None
 
     custom_activity = (
         # custom activity = (there is a cusom activity) and (the custom activity) or None
-        len(
-            [
-                actv
-                for actv in member.activities
-                if isinstance(actv, discord.CustomActivity)
-            ]
-        )
-        != 0
-        and [
-            actv
-            for actv in member.activities
-            if isinstance(actv, discord.CustomActivity)
-        ][0].name
+        len([actv for actv in member.activities if isinstance(actv, discord.CustomActivity)]) != 0
+        and [actv for actv in member.activities if isinstance(actv, discord.CustomActivity)][0].name
         or None
     )
 
@@ -201,18 +192,12 @@ async def specs_img(member: discord.Member) -> Image.Image:
             member_activity_name = activity.name or member_activity_name
             member_activity_type = activity.type.name
 
-            if isinstance(activity, discord.Activity) and not isinstance(
-                activity, discord.Streaming
-            ):
+            if isinstance(activity, discord.Activity) and not isinstance(activity, discord.Streaming):
                 member_activity_details = activity.details or member_activity_details
                 member_activity_state = activity.state or member_activity_state
                 # Handle None case with an or clause
-                member_activity_large_img = (
-                    activity.large_image_url or member_activity_large_img
-                )
-                member_activity_small_img = (
-                    activity.small_image_url or member_activity_small_img
-                )
+                member_activity_large_img = activity.large_image_url or member_activity_large_img
+                member_activity_small_img = activity.small_image_url or member_activity_small_img
                 member_activity_end = activity.end
                 member_activity_start = activity.start
 
@@ -260,9 +245,7 @@ async def specs_img(member: discord.Member) -> Image.Image:
                 now = datetime.datetime.now().timestamp()
                 now = datetime.datetime.fromtimestamp(now, tz=datetime.timezone.utc)
                 time_diff = member_activity_end - now
-                raw_time_remaining = divmod(
-                    time_diff.days * (24 * 60 * 60) + time_diff.seconds, 60
-                )
+                raw_time_remaining = divmod(time_diff.days * (24 * 60 * 60) + time_diff.seconds, 60)
                 minutes, seconds = raw_time_remaining
                 minutes = len(str(minutes)) == 1 and f"0{minutes}" or minutes
                 seconds = len(str(seconds)) == 1 and f"0{seconds}" or seconds
