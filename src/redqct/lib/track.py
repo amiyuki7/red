@@ -45,22 +45,23 @@ class Users_:
 
         ids = os.listdir(data_dir)
         for id in ids:
-            # E Dorm guild ID
-            if guild.get_member(int(id)):
-                # Load the member into self.users
-                with open(f"{data_dir}/{id}/utc_offset.json", "r") as f:
-                    offset_data = json.load(f)
+            if os.path.isdir(f"{data_dir}/{id}"):
+                # E Dorm guild ID
+                if guild.get_member(int(id)):
+                    # Load the member into self.users
+                    with open(f"{data_dir}/{id}/utc_offset.json", "r") as f:
+                        offset_data = json.load(f)
 
-                self.users.append(
-                    TrackedUser(
-                        id=id,
-                        utc_offset_h=offset_data["h_off"],
-                        utc_offset_m=offset_data["m_off"],
+                    self.users.append(
+                        TrackedUser(
+                            id=id,
+                            utc_offset_h=offset_data["h_off"],
+                            utc_offset_m=offset_data["m_off"],
+                        )
                     )
-                )
-            else:
-                # Member is not in the server - delete their data folder and its contents
-                shutil.rmtree(f"{data_dir}/{id}")
+                else:
+                    # Member is not in the server - delete their data folder and its contents
+                    shutil.rmtree(f"{data_dir}/{id}")
 
     def exists(self, id: int) -> bool:
         """
