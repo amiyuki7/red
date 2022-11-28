@@ -1,9 +1,10 @@
 import io
 import os
 import discord
-from .lib import *
+from typing import Optional
+from .lib import MemberAttrs, ActivityAttrs, NAMEMAP
 from .lib.track import Users
-from .image import generate_img
+from .lib.image import generate_img
 from discord.ext.commands import Bot, Context
 from discord.ext import tasks
 from dotenv import load_dotenv

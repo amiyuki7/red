@@ -6,11 +6,11 @@ from fontTools.ttLib import TTFont
 
 from discord import Status, Colour
 
-from .lib import MemberAttrs
-from .lib.http import fetch_all
+from . import MemberAttrs
+from .http import fetch_all
 
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
+ROOT_DIR = Path(__file__).resolve().parents[3]
 
 
 class Cache_:
