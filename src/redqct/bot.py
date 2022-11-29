@@ -286,7 +286,7 @@ async def specs_img(member: discord.Member) -> Image.Image:
 
             # # Debug within discord
             # await ctx.send(
-            # {member_activity_name}
+            #     f"""{member_activity_name}
             # {member_activity_details}
             # {member_activity_state}
             # Time remaining: {time_remaining}
@@ -296,7 +296,6 @@ async def specs_img(member: discord.Member) -> Image.Image:
             # {member_tag}
             # {member_nick}
             # {member_status}
-            # f"""
             # {member_activity_type}
             # {line_1}
             # {line_2}
@@ -307,20 +306,16 @@ async def specs_img(member: discord.Member) -> Image.Image:
             # """.strip()
             # )
 
-            # Handles the activities that are officially supported by discord
-            print(member_activity_large_img)
+            # # Handles the activities that are officially supported by discord
 
             if member_activity_large_img == "":
                 # Check if the name of the game is in the data
-                if obj := NAMEMAP[line_1]:
+                if obj := NAMEMAP.get(line_1):
                     # Check if a hash for the activity exists
                     if obj["icon_hash"]:
                         # Interpolate data into an endpoint
                         member_activity_large_img = f'https://cdn.discordapp.com/app-icons/{obj["application_id"]}/{obj["icon_hash"]}.png'
 
-            print(f"Large img url: {member_activity_large_img}")
-
-            # If the member has an activity, instantiate and ActivityAttrs object. Else, make it None
             activity_attrs = ActivityAttrs(
                 activity_type=member_activity_type,
                 image_large=member_activity_large_img,
@@ -330,13 +325,8 @@ async def specs_img(member: discord.Member) -> Image.Image:
                 line3=line_3,
                 line4=line_4,
             )
+
             activities_list.append(activity_attrs)
-
-    # else:
-    #     activity_attrs = None
-
-    # await ctx.send(len(activities_list))
-    # await ctx.send(custom_activity)
 
     attrs = MemberAttrs(
         name=member_name,
@@ -351,11 +341,6 @@ async def specs_img(member: discord.Member) -> Image.Image:
 
     img = await generate_img(attrs)
     return img
-
-    # with io.BytesIO() as bin:
-    #     img.save(bin, "png")
-    #     bin.seek(0)
-    #     await ctx.send(file=discord.File(fp=bin, filename="out.png"))
 
 
 async def main():
