@@ -20,6 +20,7 @@ PRESETS = {
     "Minecraft": (116, 81, 57), #745139
     "Roblox": (143, 159, 173), #8f9fad
     "Genshin Impact": (254, 232, 208), #fee8d0
+    "osu!": (238, 109, 166), #ee6da6
     "Assassin's Creed Valhalla": (35, 153, 144), #239990
     "The Elder Scrolls V: Skyrim": (255, 255, 255), #ffffff
     "YouTube Music": (245, 2, 27), #f5021b
