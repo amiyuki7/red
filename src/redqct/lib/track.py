@@ -3,8 +3,9 @@ import shutil
 import json
 import discord
 import datetime
+import random
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Tuple, Optional
 from .singleton import singleton
 from .image import generate_empty_graph
 
@@ -65,10 +66,15 @@ class Users_:
                     with open(f"{data_dir}/{id}/utc_offset.json", "r") as f:
                         offset_data = json.load(f)
 
-                    self.track(str(id), offset_data["h_off"], offset_data["m_off"])
+                    with open(f"{data_dir}/{id}/legend.json", "r") as f:
+                        legend_data = json.load(f)
+
+                    self.track(str(id), offset_data["h_off"], offset_data["m_off"], legend_data)
                 else:
                     # Member is not in the server - delete their data folder and its contents
                     shutil.rmtree(f"{data_dir}/{id}")
+
+        print("Load existing succeeded")
 
     def exists(self, id: int) -> bool:
         """
@@ -76,13 +82,20 @@ class Users_:
         """
         return any(user.id == str(id) for user in self.users)
 
-    def track(self, user: str, h_off: int, m_off: int) -> None:
+    def track(
+        self,
+        user: str,
+        h_off: int,
+        m_off: int,
+        legend_data: Optional[Dict[str, Tuple[int, int, int]]] = None,
+    ) -> None:
         self.users.append(
             TrackedUser(
                 bot=self.bot,
                 id=str(user),
                 utc_offset_h=h_off,
                 utc_offset_m=m_off,
+                legend=legend_data,
             )
         )
 
@@ -99,7 +112,7 @@ class Users_:
         """
         for user in self.users:
             await user.check_clear()
-            await user.update_graph()
+            await user.update_graph(ctx=self)
 
 
 class TrackedUser:
@@ -108,6 +121,7 @@ class TrackedUser:
     """
 
     __slots__ = (
+        "bot",
         "name",
         "tag",
         "id",
@@ -116,16 +130,23 @@ class TrackedUser:
         "legend",
     )
 
-    def __init__(self, bot: discord.Client, id: str, utc_offset_h: int, utc_offset_m: int) -> None:
+    def __init__(
+        self,
+        bot: discord.Client,
+        id: str,
+        utc_offset_h: int,
+        utc_offset_m: int,
+        legend: Optional[Dict[str, Tuple[int, int, int]]] = None,
+    ) -> None:
         user = bot.get_user(int(id))
+        self.bot = bot
         self.name = user and user.name or "NULL"
         self.tag = user and user.discriminator or "NULL"
         self.id = id
-        self.utc_offset_h: int = utc_offset_h
-        self.utc_offset_m: int = utc_offset_m
-        self.legend: List[str] = []
+        self.utc_offset_h = utc_offset_h
+        self.utc_offset_m = utc_offset_m
 
-        print(self.utc_offset_h, self.utc_offset_m)
+        self.legend = legend or dict()
         self.setup_dir()
 
     def setup_dir(self) -> None:
@@ -147,6 +168,9 @@ class TrackedUser:
                     f,
                 )
 
+            with open(f"{data_dir}/legend.json", "w") as f:
+                json.dump({}, f)
+
             yesterday = generate_empty_graph(
                 self.name,
                 self.tag,
@@ -164,15 +188,58 @@ class TrackedUser:
                 self.utc_offset_m,
             )
 
-            print(yesterday)
-            print(today)
+            # print(yesterday)
+            # print(today)
 
             yesterday.save(f"{data_dir}/graph_yesterday.png")
             today.save(f"{data_dir}/graph_today.png")
 
+    def check_new_entry(self, activity_name: str) -> None:
+        print(activity_name)
+
+        if activity_name in self.legend:
+            return
+
+        assigned = False
+
+        # Check to assign a preset colour
+        if activity_name in PRESETS:
+            self.legend[activity_name] = PRESETS[activity_name]
+            assigned = True
+
+        # Assign a pastel colour that hasn't been already assigned
+        if not assigned:
+            for colour in PASTELS:
+                if not (colour in self.legend.values()):
+                    self.legend[activity_name] = colour
+                    assigned = True
+                    break
+
+        # All the pastel colours have been taken... generate a random non taken colour
+        if not assigned:
+            while 1:
+                r = random.randrange(0, 256)
+                g = random.randrange(0, 256)
+                b = random.randrange(0, 256)
+
+                if not (rgb := (r, g, b)) in self.legend.values():
+                    self.legend[activity_name] = rgb
+                    assigned = True
+                    break
+
+        # By now, activity_name should have a unique colour entry in self.legend
+        assert assigned
+
+        # TODO: Draw the new legend colour underneath the legend_data, adding onto the right with an extended legend if needed, figuring out drawing positions with math (counting number of activities inside self.legend)
+
+        data_dir = f"{Path(__file__).resolve().parents[3]}/data/{self.id}"
+
+        with open(f"{data_dir}/legend.json", "w") as f:
+            json.dump(self.legend, f)
+
     async def check_clear(self) -> None:
         """
-        Clears the member's graph if it's midnight according to their UTC offset. Stores the cleared graph for one day as `graph_yesterday.png`
+        Clears the member's graph if it's midnight according to their UTC offset. Stores the cleared graph for one day as `graph_yesterday.png, and resets the legend`
         """
         now = datetime.datetime.utcnow() + datetime.timedelta(
             hours=self.utc_offset_h, minutes=self.utc_offset_m
@@ -189,9 +256,40 @@ class TrackedUser:
                 f"{data_dir}/graph_today.png",
             )
 
-    async def update_graph(self) -> None:
+            # Reset legend
+            with open(f"{data_dir}/legend.json", "w") as f:
+                json.dump({}, f)
+
+    async def update_graph(self, ctx: Users_) -> None:
         """ """
         # Get the current time relative to the user's desired utc offset
         # Get the user's current activities via the bot
         # Draw a 1px line at that specific time in a specific colour depending on the activities present now
-        pass
+        guild = self.bot.get_guild(911203235522543637)
+        assert guild
+        member = guild.get_member(int(self.id))
+
+        if not member:
+            ctx.untrack(int(self.id))
+            return
+
+        # Member exists
+        activity_names = []
+
+        # Spotify doesn't have a .name, so this handles that edge case
+        if any(isinstance(a, discord.Spotify) for a in member.activities):
+            activity_names.append("Spotify")
+
+        # For every activity, add the name to the activity_names list if it exists
+        activity_names.extend(
+            [
+                a.name
+                for a in member.activities
+                if (isinstance(a, discord.Activity) or isinstance(a, discord.Game)) and a.name
+            ]
+        )
+
+        for activity_name in activity_names:
+            self.check_new_entry(activity_name)
+
+        # TODO: Draw the lines onto the graph, using activity_names and self.legend
