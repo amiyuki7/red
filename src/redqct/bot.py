@@ -32,7 +32,6 @@ async def on_ready():
 
 @tasks.loop(seconds=1)
 async def task_loop():
-    print("Task loop called")
     s = datetime.datetime.utcnow().second
     if s == 0:
         # A new minute
