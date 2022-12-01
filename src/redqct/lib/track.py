@@ -27,17 +27,19 @@ PRESETS = {
     "The Elder Scrolls V: Skyrim": (255, 255, 255), #ffffff
     "YouTube Music": (245, 2, 27), #f5021b
     "YouTube": (193, 45, 41), #c12d29
-} 
-
-PASTELS = [
-    (255, 171, 171), #FFABAB
-    (133, 227, 255), #85E3FF
-    (255, 245, 186), #FFF5BA
-    (191, 252, 198), #BFFCC6
-    (197, 163, 255), #C5A3FF
-    (252, 194, 255), #FCC2FF
-]
+    "Visual Studio Code": (32, 160, 241), #20a0f1
+    "Neovim": (26, 172, 77), #1aac4d
+    "Crunchyroll": (246, 139, 30), #f68b1e
+    "Twitch": (141, 68, 249), #8d44f9
+    "TikTok": (240, 28, 82), #f01c52
+}
 # fmt: on
+
+with open(f"{Path(__file__).resolve().parents[3]}/distincts.json", "r") as f:
+    raw: List[List[int]] = json.load(f)
+    DISTINCTS = [(a[0], a[1], a[2]) for a in raw]
+
+    print(DISTINCTS)
 
 
 @singleton
@@ -210,7 +212,7 @@ class TrackedUser:
 
         # Assign a pastel colour that hasn't been already assigned
         if not assigned:
-            for colour in PASTELS:
+            for colour in DISTINCTS:
                 if not (colour in self.legend.values()):
                     self.legend[activity_name] = colour
                     assigned = True
