@@ -1,13 +1,14 @@
 import os
 import shutil
 import json
+from PIL import Image
 import discord
 import datetime
 import random
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from .singleton import singleton
-from .image import generate_empty_graph
+from .image import generate_empty_graph, extend_legend, draw_legend_entry
 
 
 # fmt: off
@@ -230,7 +231,30 @@ class TrackedUser:
         # By now, activity_name should have a unique colour entry in self.legend
         assert assigned
 
-        # TODO: Draw the new legend colour underneath the legend_data, adding onto the right with an extended legend if needed, figuring out drawing positions with math (counting number of activities inside self.legend)
+        graph_path = f"{Path(__file__).resolve().parents[3]}/data/{self.id}/graph_today.png"
+        graph = Image.open(graph_path)
+
+        if len(self.legend) % 13 == 0 and len(self.legend) != 0:
+            # Stitch a new 430x1080 piece to the right of the current image
+            graph = extend_legend(graph)
+            print("Extended graph!")
+
+        # Calculate coords of the new legend entry to be drawn
+        base_x, base_y = 1538, 210
+        dx, dy = 430, 60
+        entries = len(self.legend)
+        vertical_pos = entries % 13
+        n_slice = entries // 13
+        coords = (base_x + dx * n_slice, base_y + dy * (vertical_pos - 1))
+
+        graph = draw_legend_entry(
+            graph=graph,
+            colour=self.legend[activity_name],
+            text=activity_name,
+            coords=coords,
+        )
+
+        graph.save(graph_path)
 
         data_dir = f"{Path(__file__).resolve().parents[3]}/data/{self.id}"
 

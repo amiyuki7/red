@@ -540,3 +540,58 @@ def generate_empty_graph(name: str, tag: str, date: datetime, h_off: int, m_off:
     )
 
     return template._background
+
+
+def extend_legend(graph: Image.Image) -> Image.Image:
+    """
+    Stitches a 430x1080 piece to the right of the graph, providing space for a larger legend
+    """
+    extension = Image.new("RGBA", (430, 1080), (41, 43, 47))
+
+    assert graph.height == extension.height == 1080
+
+    result = Image.new(
+        "RGBA",
+        (graph.width + extension.width, 1080),
+        (255, 255, 255, 255),
+    )
+
+    result.paste(graph, (0, 0))
+    result.paste(extension, (graph.width, 0))
+
+    return result
+
+
+def draw_legend_entry(
+    graph: Image.Image, colour: Tuple[int, int, int], text: str, coords: Tuple[int, int]
+) -> Image.Image:
+    """
+    Draws a new legend entry to an existing graph
+    """
+    dummy = Image.new("RGBA", (0, 0))
+    dummy_interface = ImageDraw.Draw(dummy)
+    cut = False
+
+    while 1:
+        # Cuts down the text until its 335px in width or less
+        # TODO: Make this more efficient and smart by cutting down more or less characters at a time
+        width = draw_text(dummy_interface, text, (255, 255, 255), (0, 0), Cache.bold_30, Cache.noto_30)
+
+        if width > 335 and not cut:
+            # Replace the last character with a Unicode ellipses. This can only be done once.
+            text = text[:-1] + "…"
+            cut = True
+            continue
+        elif width > 335 and cut:
+            # Remove letters before the ellipses
+            text = text[:-2] + text[-1]
+        elif width <= 335:
+            break
+
+    square = Image.new("RGBA", (30, 30), colour)
+    graph.paste(square, coords)
+    interface = ImageDraw.Draw(graph)
+    x, y = coords
+    draw_text(interface, text, (255, 255, 255), (x + 44, y - 3), Cache.bold_30, Cache.noto_30)
+
+    return graph
