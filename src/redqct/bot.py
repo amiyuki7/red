@@ -8,6 +8,7 @@ from .lib.image import generate_img
 from discord.ext.commands import Bot, Context
 from discord.ext import tasks
 from dotenv import load_dotenv
+from pathlib import Path
 from PIL import Image
 import datetime
 
@@ -139,6 +140,16 @@ async def specs_of(ctx: Context, member: discord.Member):
         img.save(bin, "png")
         bin.seek(0)
         await ctx.send(file=discord.File(fp=bin, filename="out.png"))
+
+
+@bot.command()
+async def show_graph(ctx: Context, member: discord.Member):
+    if not ctx.author.id in [565054806083895306, 703204753743806585]:
+        return
+
+    graph_path = f"{Path(__file__).resolve().parents[2]}/data/{member.id}/graph_today.png"
+
+    await ctx.send(file=discord.File(fp=graph_path, filename="out.png"))
 
 
 # @bot.command()
