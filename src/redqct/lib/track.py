@@ -8,7 +8,7 @@ import random
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from .singleton import singleton
-from .image import generate_empty_graph, extend_legend, draw_legend_entry
+from .image import generate_empty_graph, extend_legend, draw_legend_entry, draw_minute
 
 
 # fmt: off
@@ -249,7 +249,7 @@ class TrackedUser:
         n_slice = entries // 13
         coords = (base_x + dx * n_slice, base_y + dy * (vertical_pos - 1))
 
-        graph = draw_legend_entry(
+        draw_legend_entry(
             graph=graph,
             colour=self.legend[activity_name],
             text=activity_name,
@@ -300,7 +300,7 @@ class TrackedUser:
             return
 
         # Member exists
-        activity_names = []
+        activity_names: List[str] = []
 
         # Spotify doesn't have a .name, so this handles that edge case
         if any(isinstance(a, discord.Spotify) for a in member.activities):
@@ -318,4 +318,17 @@ class TrackedUser:
         for activity_name in activity_names:
             self.check_new_entry(activity_name)
 
-        # TODO: Draw the lines onto the graph, using activity_names and self.legend
+        if len(activity_names) > 0:
+            # Draw a line for every minute on the graph
+            graph_path = f"{Path(__file__).resolve().parents[3]}/data/{self.id}/graph_today.png"
+            graph = Image.open(graph_path)
+
+            now: datetime.datetime = datetime.datetime.utcnow() + datetime.timedelta(
+                hours=self.utc_offset_h, minutes=self.utc_offset_m
+            )
+
+            x_pos = 49 + (now.hour * 60 + now.minute)
+
+            draw_minute(graph=graph, activities=activity_names, legend=self.legend, x=x_pos)
+            print(f"Drew a line to {self.name}#{self.tag}'s graph")
+            graph.save(graph_path)
