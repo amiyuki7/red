@@ -70,7 +70,11 @@ class Users_:
                         offset_data = json.load(f)
 
                     with open(f"{data_dir}/{id}/legend.json", "r") as f:
-                        legend_data = json.load(f)
+                        raw: Dict[str, List[int]] = json.load(f)
+                        # Comprehend the List[int] into Tuple[int, int, int]
+                        legend_data: Dict[str, Tuple[int, int, int]] = {
+                            k: (raw[k][0], raw[k][1], raw[k][2]) for k in raw
+                        }
 
                     self.track(str(id), offset_data["h_off"], offset_data["m_off"], legend_data)
                 else:
