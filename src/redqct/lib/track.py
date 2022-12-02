@@ -287,6 +287,7 @@ class TrackedUser:
             )
 
             # Reset legend
+            self.legend = dict()
             with open(f"{data_dir}/legend.json", "w") as f:
                 json.dump({}, f)
 
