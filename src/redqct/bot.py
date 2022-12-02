@@ -47,9 +47,93 @@ async def test(ctx: Context, member: discord.Member):
 
 
 @bot.command()
-async def track(ctx: Context, member: discord.Member, offset: Optional[str]):
-    # For now, only allow myself and @VladP1234 to use this command
-    if not ctx.author.id in [565054806083895306, 703204753743806585]:
+async def commands(ctx: Context):
+    embed = discord.Embed(
+        title="Public Commands",
+        colour=0x5762EC,
+    )
+
+    # A bit of space
+    embed.add_field(name=chr(173), value="___")
+
+    embed.add_field(
+        name="**`$specs <user>`**",
+        value=f"""
+        Generates a pretty image depicting what the pinged user is doing
+
+        *Arguments*
+        `user` | A pinged user
+
+        *Examples*
+        $specs <@703204753743806585>
+        """.strip(),
+        inline=False,
+    )
+
+    embed.add_field(name=chr(173), value="___")
+
+    embed.add_field(
+        name="**`$graph <user>`**",
+        value=f"""
+        Generates a pretty graph depicting what the pinged user has done today, relative to their timezone
+
+        *Arguments*
+        `user` | A pinged, tracked user
+
+        *Examples*
+        $graph <@703204753743806585>
+        """.strip(),
+        inline=False,
+    )
+
+    embed.add_field(name=chr(173), value="___")
+
+    embed.add_field(
+        name="**`$track <offset>`**",
+        value=f"""
+        Grants permission for the bot to track *YOUR* Discord activity (i.e. what game you're playing)
+
+        *Arguments*
+        `offset` | A special offset format that complies with:
+        `[+/-][hours][minutes]`
+        If this argument is omitted, you will be tracked in UTC time
+
+        *Examples*
+        $track
+        $track +11
+        $track -5:30
+        """.strip(),
+        inline=False,
+    )
+
+    embed.add_field(name=chr(173), value="___")
+
+    embed.add_field(
+        name="**`$untrack`**",
+        value=f"""
+        Revokes permission for the bot to track *YOUR* Discord activity (i.e. what game you're playing), and deletes any previously tracked graphs
+
+        *Examples*
+        $untrack
+        """.strip(),
+        inline=False,
+    )
+
+    await ctx.reply(embed=embed)
+
+
+@bot.command()
+async def track(ctx: Context, offset: Optional[str]):
+    member = ctx.author
+
+    if Users.exists(member.id):
+        # Short circuit this entire function if the user is already being tracked
+        embed = discord.Embed(
+            title="Command failed",
+            description=f"**Can't track**: {member.mention} is already being tracked",
+            colour=0xFF0000,
+        )
+        await ctx.reply(embed=embed)
         return
 
     h_offset = 0
@@ -75,57 +159,71 @@ async def track(ctx: Context, member: discord.Member, offset: Optional[str]):
                 m_offset = int(mins)
 
         except AssertionError:
-            # Replies to the member
-            await ctx.send(
-                f"`{offset}` is an invalid offset\nOffset format: `[+/-][HOURS]:[MINS?]`\nExamples: `+10:00` | `+5` | `+01:30` | `-4` | `-8:30`",
-                reference=ctx.message,
+            # Something wrong happened with the offset formatting
+            embed = discord.Embed(
+                title="Command failed",
+                description=f"**Invalid offset**: See `$commands` for the accepted offset format",
+                colour=0xFF0000,
             )
+            await ctx.reply(embed=embed)
             return
 
         fmt_h = len(str(h_offset)) == 1 and f"0{h_offset}" or str(h_offset)
         fmt_m = len(str(m_offset)) == 1 and f"0{m_offset}" or str(m_offset)
 
-        if Users.exists(member.id):
-            await ctx.send(
-                f"{member.mention} is already being tracked. If you want to change the offset, try using `$untrack` first"
-            )
-        else:
-            # Track the user if it doesn't already exist in Users
-            Users.track(
-                str(member.id),
-                offset[0] == "+" and int(fmt_h) or -int(fmt_h),
-                offset[0] == "+" and int(fmt_m) or -int(fmt_m),
-            )
-            await ctx.send(f"Tracking {member.mention} @ timezone = `UTC{offset[0]}{fmt_h}:{fmt_m}`")
+        Users.track(
+            str(member.id),
+            offset[0] == "+" and int(fmt_h) or -int(fmt_h),
+            offset[0] == "+" and int(fmt_m) or -int(fmt_m),
+        )
+
+        embed = discord.Embed(
+            title="Command successful",
+            description=f"Successfully tracking {member.mention} @ `UTC{offset[0]}{fmt_h}:{fmt_m}`",
+            colour=0x00FF00,
+        )
+
+        await ctx.reply(embed=embed)
     else:
-        if Users.exists(member.id):
-            await ctx.send(
-                f"{member.mention} is already being tracked. If you want to change the offset, try using `$untrack` first"
-            )
-        else:
-            # Track the user if it doesn't already exist in Users
-            Users.track(
-                str(member.id),
-                0,
-                0,
-            )
-            await ctx.send(f"Tracking {member.mention} @ timezone = `UTC`")
+        Users.track(
+            str(member.id),
+            0,
+            0,
+        )
+
+        embed = discord.Embed(
+            title="Command successful",
+            description=f"Successfully tracking {member.mention} @ `UTC`",
+            colour=0x00FF00,
+        )
+
+        await ctx.reply(embed=embed)
 
 
 @bot.command()
-async def untrack(ctx: Context, member: discord.Member):
-    # For now, only allow myself and @VladP1234 to use this command
-    if not ctx.author.id in [565054806083895306, 703204753743806585]:
-        await ctx.send(f"Can't untrack - {member.mention} was not already tracked")
-        return
+async def untrack(ctx: Context):
+    member = ctx.author
+
+    if not Users.exists(member.id):
+        embed = discord.Embed(
+            title="Command failed",
+            description=f"**Can't untrack**: {member.mention} was not already tracked",
+            colour=0xFF0000,
+        )
+        await ctx.reply(embed=embed)
 
     Users.untrack(member.id)
-    await ctx.send(f"Stopped tracking {member.mention} and resetted their activity graph")
+    embed = discord.Embed(
+        title="Command successful",
+        description=f"Successfully untracked {member.mention} and reset their activity graph",
+        colour=0x00FF00,
+    )
+    await ctx.reply(embed=embed)
 
 
 @bot.command()
 async def show_tracked(ctx: Context):
-    # For now, only allow myself and @VladP1234 to use this command
+    # Only allow myself and @VladP1234 to use this command
     if not ctx.author.id in [565054806083895306, 703204753743806585]:
         return
 
@@ -133,27 +231,26 @@ async def show_tracked(ctx: Context):
 
 
 @bot.command()
-async def specs_of(ctx: Context, member: discord.Member):
+async def specs(ctx: Context, member: discord.Member):
     img = await specs_img(member)
 
     with io.BytesIO() as bin:
         img.save(bin, "png")
         bin.seek(0)
-        await ctx.send(file=discord.File(fp=bin, filename="out.png"))
+        await ctx.reply(file=discord.File(fp=bin, filename="out.png"))
 
 
 @bot.command()
-async def show_graph(ctx: Context, member: discord.Member):
-    if not ctx.author.id in [565054806083895306, 703204753743806585]:
-        return
-
+async def graph(ctx: Context, member: discord.Member):
     graph_path = f"{Path(__file__).resolve().parents[2]}/data/{member.id}/graph_today.png"
 
-    await ctx.send(file=discord.File(fp=graph_path, filename="out.png"))
+    await ctx.reply(file=discord.File(fp=graph_path, filename="out.png"))
 
 
-# @bot.command()
 async def specs_img(member: discord.Member) -> Image.Image:
+    """
+    Extracts current specs of a user and generates an image
+    """
     member_name = member.name
     member_tag = member.discriminator
     member_nick = member.nick
