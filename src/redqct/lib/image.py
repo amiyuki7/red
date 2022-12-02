@@ -1,7 +1,7 @@
 from pathlib import Path
 from PIL import Image, ImageFont, ImageDraw
 from datetime import datetime
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict
 from io import BytesIO
 from fontTools.ttLib import TTFont
 
@@ -564,9 +564,9 @@ def extend_legend(graph: Image.Image) -> Image.Image:
 
 def draw_legend_entry(
     graph: Image.Image, colour: Tuple[int, int, int], text: str, coords: Tuple[int, int]
-) -> Image.Image:
+) -> None:
     """
-    Draws a new legend entry to an existing graph
+    Draws a new legend entry to an existing graph by mutating it
     """
     dummy = Image.new("RGBA", (0, 0))
     dummy_interface = ImageDraw.Draw(dummy)
@@ -594,4 +594,37 @@ def draw_legend_entry(
     x, y = coords
     draw_text(interface, text, (255, 255, 255), (x + 44, y - 3), Cache.bold_30, Cache.noto_30)
 
-    return graph
+
+def draw_minute(
+    graph: Image.Image, activities: List[str], legend: Dict[str, Tuple[int, int, int]], x: int
+) -> None:
+    """
+    Draws a 1px line representing a minute of activity to an existing graph by mutating it
+    """
+    activities.sort()
+
+    n = len(activities)
+
+    part_height = 800 // n
+
+    chunks = []
+
+    # Divide into "equal groups", splitting the remainder if there is one
+    while (s := sum(chunks)) != 800:
+        if s + part_height > 800:
+            remainder = 800 - s
+            for idx, _ in enumerate(chunks):
+                if remainder == 0:
+                    break
+                chunks[idx] += 1
+                remainder -= 1
+        else:
+            chunks.append(part_height)
+
+    line = Image.new("RGBA", (1, 800), (255, 255, 255, 255))
+
+    for i in range(len(activities)):
+        segment = Image.new("RGBA", (1, chunks[i]), legend[activities[i]])
+        line.paste(segment, (0, sum(chunks[:i])))
+
+    graph.paste(line, (x, 174))
