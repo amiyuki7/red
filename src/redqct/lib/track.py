@@ -281,10 +281,17 @@ class TrackedUser:
         if now.hour == 0 and now.minute == 0:
             # It's Midnight - store the graph and then reset it
             shutil.copy(f"{data_dir}/graph_today.png", f"{data_dir}/graph_yesterday.png")
-            shutil.copy(
-                f"{root_dir}/assets/redqct-graph-empty-template-1920x1080.png",
-                f"{data_dir}/graph_today.png",
+
+            today = generate_empty_graph(
+                self.name,
+                self.tag,
+                datetime.datetime.utcnow()
+                + datetime.timedelta(hours=self.utc_offset_h, minutes=self.utc_offset_m),
+                self.utc_offset_h,
+                self.utc_offset_m,
             )
+
+            today.save(f"{data_dir}/graph_today.png")
 
             # Reset legend
             self.legend = dict()
