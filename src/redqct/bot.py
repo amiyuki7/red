@@ -122,9 +122,10 @@ async def commands(ctx: Context):
     await ctx.reply(embed=embed)
 
 
-@bot.command()
-async def track(ctx: Context, offset: Optional[str]):
-    member = ctx.author
+# @bot.command()
+async def track_(ctx: Context, offset: Optional[str], **kwargs):
+    force: Optional[discord.Member] = kwargs.get("force")
+    member = force or ctx.author
 
     if Users.exists(member.id):
         # Short circuit this entire function if the user is already being tracked
@@ -200,9 +201,10 @@ async def track(ctx: Context, offset: Optional[str]):
         await ctx.reply(embed=embed)
 
 
-@bot.command()
-async def untrack(ctx: Context):
-    member = ctx.author
+# @bot.command()
+async def untrack_(ctx: Context, **kwargs):
+    force: Optional[discord.Member] = kwargs.get("force")
+    member = force or ctx.author
 
     if not Users.exists(member.id):
         embed = discord.Embed(
@@ -222,6 +224,70 @@ async def untrack(ctx: Context):
 
 
 @bot.command()
+async def dev_track(ctx: Context, id: str, offset: Optional[str]):
+    # Only allow myself and @VladP1234 to use this command
+    if not ctx.author.id in [565054806083895306, 703204753743806585]:
+        return
+
+    guild = bot.get_guild(911203235522543637)
+    assert guild
+    member = guild.get_member(int(id))
+
+    if not member:
+        return
+
+    await track_(ctx, offset, force=member)
+
+
+@bot.command()
+async def dev_untrack(ctx: Context, id: str):
+    # Only allow myself and @VladP1234 to use this command
+    if not ctx.author.id in [565054806083895306, 703204753743806585]:
+        return
+
+    guild = bot.get_guild(911203235522543637)
+    assert guild
+    member = guild.get_member(int(id))
+
+    if not member:
+        return
+
+    await untrack_(ctx, force=member)
+
+
+@bot.command()
+async def track(ctx: Context, id: str):
+    msg = ctx.message.content
+
+    if len(msg.split()) != 2:
+        embed = discord.Embed(
+            title="Command failed",
+            description="**Incorrect usage**: See `$commands` for example usage",
+            colour=0xFF0000,
+        )
+        await ctx.reply(embed=embed)
+        return
+
+    await track_(ctx, id)
+
+
+@bot.command()
+async def untrack(ctx: Context):
+    msg = ctx.message.content
+
+    if len(msg.split()) != 1:
+        embed = discord.Embed(
+            title="Command failed",
+            description="**Incorrect usage**: See `$commands` for example usage",
+            colour=0xFF0000,
+        )
+        await ctx.reply(embed=embed)
+        return
+
+    await untrack_(ctx)
+
+
+@bot.command()
 async def show_tracked(ctx: Context):
     # Only allow myself and @VladP1234 to use this command
     if not ctx.author.id in [565054806083895306, 703204753743806585]:
@@ -232,6 +298,17 @@ async def show_tracked(ctx: Context):
 
 @bot.command()
 async def specs(ctx: Context, member: discord.Member):
+    msg = ctx.message.content
+
+    if len(msg.split()) != 2:
+        embed = discord.Embed(
+            title="Command failed",
+            description="**Incorrect usage**: See `$commands` for example usage",
+            colour=0xFF0000,
+        )
+        await ctx.reply(embed=embed)
+        return
+
     img = await specs_img(member)
 
     with io.BytesIO() as bin:
@@ -242,6 +319,26 @@ async def specs(ctx: Context, member: discord.Member):
 
 @bot.command()
 async def graph(ctx: Context, member: discord.Member):
+    msg = ctx.message.content
+
+    if len(msg.split()) != 2:
+        embed = discord.Embed(
+            title="Command failed",
+            description="**Incorrect usage**: See `$commands` for example usage",
+            colour=0xFF0000,
+        )
+        await ctx.reply(embed=embed)
+        return
+
+    if not Users.exists(member.id):
+        embed = discord.Embed(
+            title="Command failed",
+            description="Cannot view the graph of an untracked user",
+            colour=0xFF0000,
+        )
+        await ctx.reply(embed=embed)
+        return
+
     graph_path = f"{Path(__file__).resolve().parents[2]}/data/{member.id}/graph_today.png"
 
     await ctx.reply(file=discord.File(fp=graph_path, filename="out.png"))
