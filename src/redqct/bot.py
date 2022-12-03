@@ -1,10 +1,15 @@
 import io
 import os
 import discord
-from .lib import *
-from .image import generate_img
+from typing import Optional
+from .lib import MemberAttrs, ActivityAttrs, NAMEMAP
+from .lib.track import Users_
+from .lib.image import generate_img
 from discord.ext.commands import Bot, Context
+from discord.ext import tasks
 from dotenv import load_dotenv
+from pathlib import Path
+from PIL import Image
 import datetime
 
 load_dotenv()
@@ -12,6 +17,9 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 # BOT_TOKEN = os.getenv("DEV_TOKEN")
 assert type(BOT_TOKEN) is str
+bot_guild = os.getenv("BOT_GUILD")
+assert bot_guild
+BOT_GUILD = int(bot_guild)
 
 intents = discord.Intents().all()
 bot = Bot(command_prefix="$", intents=intents)
@@ -20,18 +28,329 @@ bot = Bot(command_prefix="$", intents=intents)
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
+    global Users
+    Users = Users_(bot=bot)
+    Users.load_existing()
+    task_loop.start()
+
+
+@tasks.loop(seconds=1)
+async def task_loop():
+    s = datetime.datetime.utcnow().second
+    if s == 0:
+        # A new minute
+        await Users.update_graphs()
+
+
+# command for just testing random stuff
+@bot.command()
+async def test(ctx: Context, member: discord.Member):
+    for flag in member.public_flags.all():
+        await ctx.send(flag.name)
 
 
 @bot.command()
-async def banner(ctx: Context, member: discord.Member):
-    user = await bot.fetch_user(member.id)
-    await ctx.send(
-        f"({user.accent_colour.r}, {user.accent_colour.g}, {user.accent_color.b})"
+async def commands(ctx: Context):
+    embed = discord.Embed(
+        title="Public Commands",
+        colour=0x5762EC,
     )
 
+    # A bit of space
+    embed.add_field(name=chr(173), value="___")
+
+    embed.add_field(
+        name="**`$specs <user>`**",
+        value=f"""
+        Generates a pretty image depicting what the pinged user is doing
+
+        *Arguments*
+        `user` | A pinged user
+
+        *Examples*
+        $specs <@703204753743806585>
+        """.strip(),
+        inline=False,
+    )
+
+    embed.add_field(name=chr(173), value="___")
+
+    embed.add_field(
+        name="**`$graph <user>`**",
+        value=f"""
+        Generates a pretty graph depicting what the pinged user has done today, relative to their timezone
+
+        *Arguments*
+        `user` | A pinged, tracked user
+
+        *Examples*
+        $graph <@703204753743806585>
+        """.strip(),
+        inline=False,
+    )
+
+    embed.add_field(name=chr(173), value="___")
+
+    embed.add_field(
+        name="**`$track <offset>`**",
+        value=f"""
+        Grants permission for the bot to track *YOUR* Discord activity (i.e. what game you're playing)
+
+        *Arguments*
+        `offset` | A special offset format that complies with:
+        `[+/-][hours][minutes]`
+        If this argument is omitted, you will be tracked in UTC time
+
+        *Examples*
+        $track
+        $track +11
+        $track -5:30
+        """.strip(),
+        inline=False,
+    )
+
+    embed.add_field(name=chr(173), value="___")
+
+    embed.add_field(
+        name="**`$untrack`**",
+        value=f"""
+        Revokes permission for the bot to track *YOUR* Discord activity (i.e. what game you're playing), and deletes any previously tracked graphs
+
+        *Examples*
+        $untrack
+        """.strip(),
+        inline=False,
+    )
+
+    await ctx.reply(embed=embed)
+
+
+# @bot.command()
+async def track_(ctx: Context, offset: Optional[str], **kwargs):
+    force: Optional[discord.Member] = kwargs.get("force")
+    member = force or ctx.author
+
+    if Users.exists(member.id):
+        # Short circuit this entire function if the user is already being tracked
+        embed = discord.Embed(
+            title="Command failed",
+            description=f"**Can't track**: {member.mention} is already being tracked",
+            colour=0xFF0000,
+        )
+        await ctx.reply(embed=embed)
+        return
+
+    h_offset = 0
+    m_offset = 0
+    if offset:
+        offset = offset.strip()
+        # Everything after the sign
+        parts = offset[1:].split(":")
+
+        try:
+            # A ton of rules the formatting of the offset must follow
+            assert offset[0] == "+" or offset[0] == "-"
+            assert all(x.isdigit() for x in parts)
+            assert len(parts) == 1 or len(parts) == 2
+
+            # Check that the hours and minutes offset is within reason
+            assert 0 <= int(parts[0]) <= 23
+            h_offset = int(parts[0])
+
+            if len(parts) == 2:
+                mins = parts[1]
+                assert 0 <= int(mins) <= 59
+                m_offset = int(mins)
+
+        except AssertionError:
+            # Something wrong happened with the offset formatting
+            embed = discord.Embed(
+                title="Command failed",
+                description=f"**Invalid offset**: See `$commands` for the accepted offset format",
+                colour=0xFF0000,
+            )
+            await ctx.reply(embed=embed)
+            return
+
+        fmt_h = len(str(h_offset)) == 1 and f"0{h_offset}" or str(h_offset)
+        fmt_m = len(str(m_offset)) == 1 and f"0{m_offset}" or str(m_offset)
+
+        Users.track(
+            str(member.id),
+            offset[0] == "+" and int(fmt_h) or -int(fmt_h),
+            offset[0] == "+" and int(fmt_m) or -int(fmt_m),
+        )
+
+        embed = discord.Embed(
+            title="Command successful",
+            description=f"Successfully tracking {member.mention} @ `UTC{offset[0]}{fmt_h}:{fmt_m}`",
+            colour=0x00FF00,
+        )
+
+        await ctx.reply(embed=embed)
+    else:
+        Users.track(
+            str(member.id),
+            0,
+            0,
+        )
+
+        embed = discord.Embed(
+            title="Command successful",
+            description=f"Successfully tracking {member.mention} @ `UTC`",
+            colour=0x00FF00,
+        )
+
+        await ctx.reply(embed=embed)
+
+
+# @bot.command()
+async def untrack_(ctx: Context, **kwargs):
+    force: Optional[discord.Member] = kwargs.get("force")
+    member = force or ctx.author
+
+    if not Users.exists(member.id):
+        embed = discord.Embed(
+            title="Command failed",
+            description=f"**Can't untrack**: {member.mention} was not already tracked",
+            colour=0xFF0000,
+        )
+        await ctx.reply(embed=embed)
+
+    Users.untrack(member.id)
+    embed = discord.Embed(
+        title="Command successful",
+        description=f"Successfully untracked {member.mention} and reset their activity graph",
+        colour=0x00FF00,
+    )
+    await ctx.reply(embed=embed)
+
 
 @bot.command()
-async def specs_of(ctx: Context, member: discord.Member):
+async def dev_track(ctx: Context, id: str, offset: Optional[str]):
+    # Only allow myself and @VladP1234 to use this command
+    if not ctx.author.id in [565054806083895306, 703204753743806585]:
+        return
+
+    guild = bot.get_guild(BOT_GUILD)
+    assert guild
+    member = guild.get_member(int(id))
+
+    if not member:
+        return
+
+    await track_(ctx, offset, force=member)
+
+
+@bot.command()
+async def dev_untrack(ctx: Context, id: str):
+    # Only allow myself and @VladP1234 to use this command
+    if not ctx.author.id in [565054806083895306, 703204753743806585]:
+        return
+
+    guild = bot.get_guild(BOT_GUILD)
+    assert guild
+    member = guild.get_member(int(id))
+
+    if not member:
+        return
+
+    await untrack_(ctx, force=member)
+
+
+@bot.command()
+async def track(ctx: Context, id: str):
+    msg = ctx.message.content
+
+    if len(msg.split()) != 2:
+        embed = discord.Embed(
+            title="Command failed",
+            description="**Incorrect usage**: See `$commands` for example usage",
+            colour=0xFF0000,
+        )
+        await ctx.reply(embed=embed)
+        return
+
+    await track_(ctx, id)
+
+
+@bot.command()
+async def untrack(ctx: Context):
+    msg = ctx.message.content
+
+    if len(msg.split()) != 1:
+        embed = discord.Embed(
+            title="Command failed",
+            description="**Incorrect usage**: See `$commands` for example usage",
+            colour=0xFF0000,
+        )
+        await ctx.reply(embed=embed)
+        return
+
+    await untrack_(ctx)
+
+
+@bot.command()
+async def show_tracked(ctx: Context):
+    # Only allow myself and @VladP1234 to use this command
+    if not ctx.author.id in [565054806083895306, 703204753743806585]:
+        return
+
+    await ctx.send(str(Users.users))
+
+
+@bot.command()
+async def specs(ctx: Context, member: discord.Member):
+    msg = ctx.message.content
+
+    if len(msg.split()) != 2:
+        embed = discord.Embed(
+            title="Command failed",
+            description="**Incorrect usage**: See `$commands` for example usage",
+            colour=0xFF0000,
+        )
+        await ctx.reply(embed=embed)
+        return
+
+    img = await specs_img(member)
+
+    with io.BytesIO() as bin:
+        img.save(bin, "png")
+        bin.seek(0)
+        await ctx.reply(file=discord.File(fp=bin, filename="out.png"))
+
+
+@bot.command()
+async def graph(ctx: Context, member: discord.Member):
+    msg = ctx.message.content
+
+    if len(msg.split()) != 2:
+        embed = discord.Embed(
+            title="Command failed",
+            description="**Incorrect usage**: See `$commands` for example usage",
+            colour=0xFF0000,
+        )
+        await ctx.reply(embed=embed)
+        return
+
+    if not Users.exists(member.id):
+        embed = discord.Embed(
+            title="Command failed",
+            description="Cannot view the graph of an untracked user",
+            colour=0xFF0000,
+        )
+        await ctx.reply(embed=embed)
+        return
+
+    graph_path = f"{Path(__file__).resolve().parents[2]}/data/{member.id}/graph_today.png"
+
+    await ctx.reply(file=discord.File(fp=graph_path, filename="out.png"))
+
+
+async def specs_img(member: discord.Member) -> Image.Image:
+    """
+    Extracts current specs of a user and generates an image
+    """
     member_name = member.name
     member_tag = member.discriminator
     member_nick = member.nick
@@ -44,32 +363,17 @@ async def specs_of(ctx: Context, member: discord.Member):
 
     member_status = member.status
     user = await bot.fetch_user(member.id)
-    member_banner_colour = user.accent_color
+    member_banner_colour = user.accent_colour
     # CustomActivity is the custom status, which ofr this application, is not considered a "rich presence"
-    without_custom = [
-        actv
-        for actv in member.activities
-        if not isinstance(actv, discord.CustomActivity)
-    ]
+    without_custom = [actv for actv in member.activities if not isinstance(actv, discord.CustomActivity)]
     # Use the first non-custom activity
     # TODO: Use all the activites and track them into a graph
     activities = len(without_custom) > 0 and without_custom or None
 
     custom_activity = (
         # custom activity = (there is a cusom activity) and (the custom activity) or None
-        len(
-            [
-                actv
-                for actv in member.activities
-                if isinstance(actv, discord.CustomActivity)
-            ]
-        )
-        != 0
-        and [
-            actv
-            for actv in member.activities
-            if isinstance(actv, discord.CustomActivity)
-        ][0].name
+        len([actv for actv in member.activities if isinstance(actv, discord.CustomActivity)]) != 0
+        and [actv for actv in member.activities if isinstance(actv, discord.CustomActivity)][0].name
         or None
     )
 
@@ -95,18 +399,12 @@ async def specs_of(ctx: Context, member: discord.Member):
             member_activity_name = activity.name or member_activity_name
             member_activity_type = activity.type.name
 
-            if isinstance(activity, discord.Activity) and not isinstance(
-                activity, discord.Streaming
-            ):
+            if isinstance(activity, discord.Activity) and not isinstance(activity, discord.Streaming):
                 member_activity_details = activity.details or member_activity_details
                 member_activity_state = activity.state or member_activity_state
                 # Handle None case with an or clause
-                member_activity_large_img = (
-                    activity.large_image_url or member_activity_large_img
-                )
-                member_activity_small_img = (
-                    activity.small_image_url or member_activity_small_img
-                )
+                member_activity_large_img = activity.large_image_url or member_activity_large_img
+                member_activity_small_img = activity.small_image_url or member_activity_small_img
                 member_activity_end = activity.end
                 member_activity_start = activity.start
 
@@ -154,9 +452,7 @@ async def specs_of(ctx: Context, member: discord.Member):
                 now = datetime.datetime.now().timestamp()
                 now = datetime.datetime.fromtimestamp(now, tz=datetime.timezone.utc)
                 time_diff = member_activity_end - now
-                raw_time_remaining = divmod(
-                    time_diff.days * (24 * 60 * 60) + time_diff.seconds, 60
-                )
+                raw_time_remaining = divmod(time_diff.days * (24 * 60 * 60) + time_diff.seconds, 60)
                 minutes, seconds = raw_time_remaining
                 minutes = len(str(minutes)) == 1 and f"0{minutes}" or minutes
                 seconds = len(str(seconds)) == 1 and f"0{seconds}" or seconds
@@ -197,7 +493,7 @@ async def specs_of(ctx: Context, member: discord.Member):
 
             # # Debug within discord
             # await ctx.send(
-            # {member_activity_name}
+            #     f"""{member_activity_name}
             # {member_activity_details}
             # {member_activity_state}
             # Time remaining: {time_remaining}
@@ -207,7 +503,6 @@ async def specs_of(ctx: Context, member: discord.Member):
             # {member_tag}
             # {member_nick}
             # {member_status}
-            # f"""
             # {member_activity_type}
             # {line_1}
             # {line_2}
@@ -218,7 +513,16 @@ async def specs_of(ctx: Context, member: discord.Member):
             # """.strip()
             # )
 
-            # If the member has an activity, instantiate and ActivityAttrs object. Else, make it None
+            # # Handles the activities that are officially supported by discord
+
+            if member_activity_large_img == "":
+                # Check if the name of the game is in the data
+                if obj := NAMEMAP.get(line_1):
+                    # Check if a hash for the activity exists
+                    if obj["icon_hash"]:
+                        # Interpolate data into an endpoint
+                        member_activity_large_img = f'https://cdn.discordapp.com/app-icons/{obj["application_id"]}/{obj["icon_hash"]}.png'
+
             activity_attrs = ActivityAttrs(
                 activity_type=member_activity_type,
                 image_large=member_activity_large_img,
@@ -228,13 +532,8 @@ async def specs_of(ctx: Context, member: discord.Member):
                 line3=line_3,
                 line4=line_4,
             )
+
             activities_list.append(activity_attrs)
-
-    # else:
-    #     activity_attrs = None
-
-    # await ctx.send(len(activities_list))
-    # await ctx.send(custom_activity)
 
     attrs = MemberAttrs(
         name=member_name,
@@ -244,19 +543,11 @@ async def specs_of(ctx: Context, member: discord.Member):
         avatar=member_avatar,
         activities=activities_list,
         customActivity=custom_activity,
-        banner_color=member_banner_colour,
+        banner_colour=member_banner_colour,
     )
 
-    # Debug showing the image
     img = await generate_img(attrs)
-    # img.show()
-
-    with io.BytesIO() as bin:
-        img.save(bin, "png")
-        bin.seek(0)
-        await ctx.send(file=discord.File(fp=bin, filename="out.png"))
-
-    # return attrs
+    return img
 
 
 async def main():

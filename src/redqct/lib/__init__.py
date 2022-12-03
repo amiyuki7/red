@@ -1,10 +1,20 @@
 from __future__ import annotations
-from typing import Optional, List, Tuple
+from typing import Optional, List
 from discord import Status, Colour
-import asyncio
-import aiohttp
+import json
 
-Number = int | float
+with open("namemap.json", "r") as f:
+    """
+    NAMEMAP is in this structure:
+    {
+        "game_name": {
+            "application_id": str
+            "icon_hash": Optional[str]
+        },
+        ...
+    }
+    """
+    NAMEMAP: dict[str, dict[str, Optional[str]]] = json.load(f)
 
 
 class MemberAttrs:
@@ -15,7 +25,7 @@ class MemberAttrs:
         nick: Optional[str],
         status: Status,
         avatar: str,
-        banner_color: Optional[Colour],
+        banner_colour: Optional[Colour],
         # badges: List[discord.PublicUserFlags] | None,
         activities: List[ActivityAttrs],
         customActivity: Optional[str],
@@ -25,7 +35,7 @@ class MemberAttrs:
         self.nick = nick
         self.status = status
         self.avatar = avatar
-        self.banner_colour = banner_color
+        self.banner_colour = banner_colour
         # self.badges = badges
         self.activities = activities
         self.customActivity = customActivity
@@ -51,20 +61,7 @@ class ActivityAttrs:
         self.line4 = len(line4) > 35 and line4[:50] + "..." or line4
 
 
-async def fetch_bytes(
-    session: aiohttp.ClientSession, url: str, id: str
-) -> Tuple[bytes, str]:
-    async with session.get(url) as response:
-        # Debug
-        print(response.status, response.content_type)
-        bytes = await response.read()
-        return (bytes, id)
-
-
-async def fetch_all(pairs: List[Tuple[str, str]]) -> List[Tuple[bytes, str]]:
-    async with aiohttp.ClientSession() as session:
-        results = await asyncio.gather(*[fetch_bytes(session, *pair) for pair in pairs])
-        return results
+Number = int | float
 
 
 def cube(x: Number) -> Number:
