@@ -7,9 +7,15 @@ import datetime
 import random
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
+from dotenv import load_dotenv
 from .singleton import singleton
 from .image import generate_empty_graph, extend_legend, draw_legend_entry, draw_minute
 
+
+load_dotenv()
+bot_guild = os.getenv("BOT_GUILD")
+assert bot_guild
+BOT_GUILD = int(bot_guild)
 
 # fmt: off
 PRESETS = {
@@ -57,7 +63,7 @@ class Users_:
         Checks through `data/`, loading any currently tracked members into `self.users`
         """
         data_dir = f"{Path(__file__).resolve().parents[3]}/data"
-        guild = self.bot.get_guild(911203235522543637)
+        guild = self.bot.get_guild(BOT_GUILD)
         assert guild
 
         ids = os.listdir(data_dir)
@@ -303,7 +309,7 @@ class TrackedUser:
         # Get the current time relative to the user's desired utc offset
         # Get the user's current activities via the bot
         # Draw a 1px line at that specific time in a specific colour depending on the activities present now
-        guild = self.bot.get_guild(911203235522543637)
+        guild = self.bot.get_guild(BOT_GUILD)
         assert guild
         member = guild.get_member(int(self.id))
 

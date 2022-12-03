@@ -17,6 +17,9 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 # BOT_TOKEN = os.getenv("DEV_TOKEN")
 assert type(BOT_TOKEN) is str
+bot_guild = os.getenv("BOT_GUILD")
+assert bot_guild
+BOT_GUILD = int(bot_guild)
 
 intents = discord.Intents().all()
 bot = Bot(command_prefix="$", intents=intents)
@@ -229,7 +232,7 @@ async def dev_track(ctx: Context, id: str, offset: Optional[str]):
     if not ctx.author.id in [565054806083895306, 703204753743806585]:
         return
 
-    guild = bot.get_guild(911203235522543637)
+    guild = bot.get_guild(BOT_GUILD)
     assert guild
     member = guild.get_member(int(id))
 
@@ -245,7 +248,7 @@ async def dev_untrack(ctx: Context, id: str):
     if not ctx.author.id in [565054806083895306, 703204753743806585]:
         return
 
-    guild = bot.get_guild(911203235522543637)
+    guild = bot.get_guild(BOT_GUILD)
     assert guild
     member = guild.get_member(int(id))
 
