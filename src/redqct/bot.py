@@ -66,8 +66,10 @@ async def commands(ctx: Context):
 
         *Arguments*
         `user` | A pinged user
+        If this argument is omitted, it will be defaulted to you
 
         *Examples*
+        $specs
         $specs <@703204753743806585>
         """.strip(),
         inline=False,
@@ -82,8 +84,10 @@ async def commands(ctx: Context):
 
         *Arguments*
         `user` | A pinged, tracked user
+        If this argument is omitted, it will be defaulted to you
 
         *Examples*
+        $graph
         $graph <@703204753743806585>
         """.strip(),
         inline=False,
@@ -98,7 +102,7 @@ async def commands(ctx: Context):
 
         *Arguments*
         `offset` | A special offset format that complies with:
-        `[+/-][hours][minutes]`
+        `[+/-][hours]` or `[+/-][hours]:[minutes]`
         If this argument is omitted, you will be tracked in UTC time
 
         *Examples*
@@ -300,17 +304,31 @@ async def show_tracked(ctx: Context):
 
 
 @bot.command()
-async def specs(ctx: Context, member: discord.Member):
+async def specs(ctx: Context, member: Optional[discord.Member] = None):
     msg = ctx.message.content
 
-    if len(msg.split()) != 2:
-        embed = discord.Embed(
-            title="Command failed",
-            description="**Incorrect usage**: See `$commands` for example usage",
-            colour=0xFF0000,
-        )
-        await ctx.reply(embed=embed)
-        return
+    if member:
+        if len(msg.split()) != 2:
+            embed = discord.Embed(
+                title="Command failed",
+                description="**Incorrect usage**: See `$commands` for example usage",
+                colour=0xFF0000,
+            )
+            await ctx.reply(embed=embed)
+            return
+
+    if member is None:
+        if len(msg.split()) != 1:
+            embed = discord.Embed(
+                title="Command failed",
+                description="**Incorrect usage**: See `$commands` for example usage",
+                colour=0xFF0000,
+            )
+            await ctx.reply(embed=embed)
+            return
+
+    assert isinstance(ctx.author, discord.Member)
+    member = member or ctx.author
 
     img = await specs_img(member)
 
@@ -321,17 +339,31 @@ async def specs(ctx: Context, member: discord.Member):
 
 
 @bot.command()
-async def graph(ctx: Context, member: discord.Member):
+async def graph(ctx: Context, member: Optional[discord.Member] = None):
     msg = ctx.message.content
 
-    if len(msg.split()) != 2:
-        embed = discord.Embed(
-            title="Command failed",
-            description="**Incorrect usage**: See `$commands` for example usage",
-            colour=0xFF0000,
-        )
-        await ctx.reply(embed=embed)
-        return
+    if member:
+        if len(msg.split()) != 2:
+            embed = discord.Embed(
+                title="Command failed",
+                description="**Incorrect usage**: See `$commands` for example usage",
+                colour=0xFF0000,
+            )
+            await ctx.reply(embed=embed)
+            return
+
+    if member is None:
+        if len(msg.split()) != 1:
+            embed = discord.Embed(
+                title="Command failed",
+                description="**Incorrect usage**: See `$commands` for example usage",
+                colour=0xFF0000,
+            )
+            await ctx.reply(embed=embed)
+            return
+
+    assert isinstance(ctx.author, discord.Member)
+    member = member or ctx.author
 
     if not Users.exists(member.id):
         embed = discord.Embed(
