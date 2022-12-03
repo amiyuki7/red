@@ -55,10 +55,14 @@ class ActivityAttrs:
         self.type = activity_type
         self.image_large = image_large
         self.image_small = image_small
-        self.line1 = len(line1) > 35 and line1[:50] + "..." or line1
-        self.line2 = len(line2) > 35 and line2[:50] + "..." or line2
-        self.line3 = len(line3) > 35 and line3[:50] + "..." or line3
-        self.line4 = len(line4) > 35 and line4[:50] + "..." or line4
+        # self.line1 = len(line1) > 35 and line1[:50] + "..." or line1
+        # self.line2 = len(line2) > 35 and line2[:50] + "..." or line2
+        # self.line3 = len(line3) > 35 and line3[:50] + "..." or line3
+        # self.line4 = len(line4) > 35 and line4[:50] + "..." or line4
+        self.line1 = line1
+        self.line2 = line2
+        self.line3 = line3
+        self.line4 = line4
 
 
 Number = int | float

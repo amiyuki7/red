@@ -16,12 +16,16 @@ ROOT_DIR = Path(__file__).resolve().parents[3]
 
 class Cache_:
     __slots__ = (
-        # "itemplate",
-        "member_template",
-        "banner_template",
-        "custom_activity_template",
-        "dummy_activity_template",
-        "activity_template",
+        "member_template_v2",
+        "banner_template_v2",
+        "custom_activity_template_v2",
+        "dummy_activity_template_v2",
+        "activity_template_v2",
+        # "member_template",
+        # "banner_template",
+        # "custom_activity_template",
+        # "dummy_activity_template",
+        # "activity_template",
         "graph_template",
         "pfp_mask",
         "activity_mask",
@@ -46,13 +50,18 @@ class Cache_:
     )
 
     def __init__(self) -> None:
-        # self.itemplate = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-1100x600.png")
         # fmt: off
-        self.member_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-member-1100x600.png")
-        self.banner_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-banner-1100x150.png")
-        self.custom_activity_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-custom-status-1100x100.png")
-        self.dummy_activity_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-dummy-1100x335.png")
-        self.activity_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-activity-1100x335.png")
+        self.member_template_v2 = Image.open(f"{ROOT_DIR}/assets/v2/redqct-member-1300x265.png")
+        self.banner_template_v2 = Image.open(f"{ROOT_DIR}/assets/v2/redqct-banner-1300x184.png")
+        self.custom_activity_template_v2 = Image.open(f"{ROOT_DIR}/assets/v2/redqct-customstatus-1300x100.png")
+        self.dummy_activity_template_v2 = Image.open(f"{ROOT_DIR}/assets/v2/redqct-dummy-1300x335.png")
+        self.activity_template_v2 = Image.open(f"{ROOT_DIR}/assets/v2/redqct-activity-1300x335.png")
+
+        # self.member_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-member-1100x600.png")
+        # self.banner_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-banner-1100x150.png")
+        # self.custom_activity_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-custom-status-1100x100.png")
+        # self.dummy_activity_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-dummy-1100x335.png")
+        # self.activity_template = Image.open(f"{ROOT_DIR}/assets/redqct-empty-template-activity-1100x335.png")
         self.graph_template = Image.open(f"{ROOT_DIR}/assets/redqct-graph-empty-template-1920x1080.png")
         # fmt: on
         self.pfp_mask = Image.open(f"{ROOT_DIR}/assets/mask_pfp.png")
@@ -104,20 +113,20 @@ class Template:
 
 class MemberTemplate(Template):
     def __init__(self) -> None:
-        super().__init__(Cache.member_template)
+        super().__init__(Cache.member_template_v2)
 
 
 class CustomActivityTemplate(Template):
     def __init__(self) -> None:
-        super().__init__(Cache.custom_activity_template)
+        super().__init__(Cache.custom_activity_template_v2)
 
 
 class ActivityTemplate(Template):
     def __init__(self, dummy: bool) -> None:
         if dummy:
-            super().__init__(Cache.dummy_activity_template)
+            super().__init__(Cache.dummy_activity_template_v2)
         else:
-            super().__init__(Cache.activity_template)
+            super().__init__(Cache.activity_template_v2)
 
 
 class GraphTemplate(Template):
@@ -189,6 +198,43 @@ def draw_text(
     return net_offset
 
 
+def truncate(
+    text: str,
+    max_width: int,
+    wanted_font: ImageFont.FreeTypeFont,
+    fallback: ImageFont.FreeTypeFont,
+) -> str:
+    """
+    Cuts down a long string of text to a particular width
+
+    text        | string of characters to be truncated
+    max_width   | desired maximum width of the text in pixels
+    wanted_font | desired font for each character to be rendered in
+    fallback    | preferably a type of "Noto" font to use if Uni Sans doesn't work
+    """
+    dummy = Image.new("RGBA", (0, 0))
+    dummy_interface = ImageDraw.Draw(dummy)
+    cut = False
+
+    while 1:
+        # Cuts down the text until its max_width in width or less
+        # TODO: Make this more efficient and smart by cutting down more or less characters at a time
+        width = draw_text(dummy_interface, text, (255, 255, 255), (0, 0), wanted_font, fallback)
+
+        if width > max_width and not cut:
+            # Replace the last character with a Unicode ellipses. This can only be done once.
+            text = text[:-1] + "…"
+            cut = True
+            continue
+        elif width > max_width and cut:
+            # Remove letters before the ellipses
+            text = text[:-2] + text[-1]
+        elif width <= max_width:
+            break
+
+    return text
+
+
 def generate_member(
     name: str,
     tag: str,
@@ -202,7 +248,7 @@ def generate_member(
     """
     template = MemberTemplate()
     if banner_colour:
-        rgb_banner_template = Cache.banner_template.convert("RGBA")
+        rgb_banner_template = Cache.banner_template_v2.convert("RGBA")
         for y in range(rgb_banner_template.height):
             for x in range(rgb_banner_template.width):
                 if rgb_banner_template.getpixel((x, y)) != (0, 0, 0, 0):
@@ -228,59 +274,36 @@ def generate_member(
     template.draw(light, (176, 196))
 
     edit = template.to_editable()
-    username_xy = (266, 113)
-    username_xy2 = (266, 73)
-    nickname_xy = (266, 109)
 
-    if nick:
-        # Render name#tag
-        offset = draw_text(
-            edit,
-            name,
-            (255, 255, 255),
-            username_xy2,
-            Cache.bold_30,
-            Cache.noto_30,
-        )
+    username_xy = (264, 200)
+    nickname_xy = (264, 236)
 
-        draw_text(
-            edit,
-            f"#{tag}",
-            (167, 169, 172),
-            (username_xy2[0] + offset, username_xy2[1]),
-            Cache.bold_30,
-            Cache.noto_30,
-        )
+    offset = draw_text(
+        edit,
+        name,
+        (255, 255, 255),
+        username_xy,
+        Cache.bold_30,
+        Cache.noto_30,
+    )
 
-        # Render nickname
-        draw_text(
-            edit,
-            f"(aka {nick})",
-            (255, 255, 255),
-            nickname_xy,
-            Cache.bold_20,
-            Cache.noto_20,
-        )
-    else:
-        # Render only the name#tag
+    draw_text(
+        edit,
+        f"#{tag}",
+        (167, 169, 172),
+        (username_xy[0] + offset, username_xy[1]),
+        Cache.bold_30,
+        Cache.noto_30,
+    )
 
-        offset = draw_text(
-            edit,
-            name,
-            (255, 255, 255),
-            username_xy,
-            Cache.bold_30,
-            Cache.noto_30,
-        )
-
-        draw_text(
-            edit,
-            f"#{tag}",
-            (167, 169, 172),
-            (username_xy[0] + offset, username_xy[1]),
-            Cache.bold_30,
-            Cache.noto_30,
-        )
+    draw_text(
+        edit,
+        nick and f"(aka {nick})" or "(no nickname)",
+        (255, 255, 255),
+        nickname_xy,
+        Cache.bold_20,
+        Cache.noto_20,
+    )
 
     return template._background
 
@@ -294,6 +317,8 @@ def generate_custom_status(line: Optional[str]) -> Image.Image:
     edit = template.to_editable()
 
     if line:
+        line = truncate(line, 1200, Cache.heavy_25, Cache.noto_25)
+
         draw_text(
             edit,
             line,
@@ -332,11 +357,11 @@ def generate_activity(
             font=Cache.heavy_25,
         )
         return template._background
+
+    if image_large is None:
+        template = ActivityTemplate(dummy=True)
     else:
         template = ActivityTemplate(dummy=False)
-
-    # Render activity image
-    if image_large:
         cropped_image = masked(image_large, Cache.activity_mask)
         template.draw(cropped_image, (48, 91))
 
@@ -367,6 +392,10 @@ def generate_activity(
 
     edit.text((51, 55), activity, fill=(255, 255, 255), font=Cache.heavy_25)
 
+    line1 = truncate(line1, 997, Cache.bold_25, Cache.noto_25)
+    line2 = truncate(line2, 997, Cache.bold_25, Cache.noto_25)
+    line3 = truncate(line3, 997, Cache.bold_25, Cache.noto_25)
+    line4 = truncate(line4, 997, Cache.bold_25, Cache.noto_25)
     draw_text(edit, line1, (255, 255, 255), (253, 128), Cache.bold_25, Cache.noto_25)
     draw_text(edit, line2, (255, 255, 255), (253, 158), Cache.reg_25, Cache.noto_25)
     draw_text(edit, line3, (255, 255, 255), (253, 188), Cache.reg_25, Cache.noto_25)
@@ -380,7 +409,7 @@ def stitch(pieces: List[Image.Image]) -> Image.Image:
     Takes a list of pieces and "stitches" them together in order vertically, returning the composed image
     """
     total_height = sum([piece.height for piece in pieces])
-    background = Image.new("RGBA", (1100, total_height), (255, 255, 255, 255))
+    background = Image.new("RGBA", (1300, total_height), (255, 255, 255, 255))
     y_offset = 0
     for piece in pieces:
         background.paste(piece, (0, y_offset))
@@ -464,9 +493,10 @@ async def generate_img(attrs: MemberAttrs) -> Image.Image:
                 member_piece,
                 generate_custom_status(attrs.customActivity),
                 *activity_pieces,
+                Image.new("RGBA", (1300, 10), (41, 43, 47)),
             ]
         )
-        or stitch([member_piece, *activity_pieces])
+        or stitch([member_piece, *activity_pieces, Image.new("RGBA", (1300, 10), (41, 43, 47))])
     )
 
 
